@@ -1,0 +1,42 @@
+# etcd Back-up
+sudo ETCDCTL_API=3 etcdctl \ 
+  --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+  --cert=/etc/kubernetes/pki/etcd/server.crt \
+  --key=/etc/kubernetes/pki/etcd/server.key \
+  snapshot save /data/etcd-snapshot.db
+
+ETCDCTL_API=3 -> version
+
+ps -ef | grep kube | grep <cacert, cert, key-file>
+-> 정확하게 일치하는 file 찾아서 써야함
+
+ls -l /tmp/ -> 백업파일이 잘 생성 되었는지 확인
+
+kubectl get pods
+kubectl get deployments.apps
+
+
+# etcd Restore
+# new database dir : /var/lib/etcd-new
+restore 시 기존의 db의 디렉토리에서 하는게 아니고 새로운 db의 디렉토리에 restore
+sudo ETCDCTL_API=3 etcdctl \
+  --data-dir /var/lib/etcd-previous \ -> 새로 사용할 etcd 디렉토리
+  snapshot restore /data/etcd-snapshot-previous.db -> 기존에 있던 스냅샷 파일로 복원
+
+sudo ls /var/lib/etcd-previous
+sudo tree /var/lib/etcd-previous
+
+* etcd pod의 data 저장소를 /var/lib/etcd-new 로 변경해서 다시 실행
+sudo vi /etc/kubernetes/manifests/etcd.yaml
+…
+-hostPath:
+path: /var/lib/etcd -> /var/lib/etcd-previous 로 경로 변경하여 restore 되도록 설정
+type: DirectoryOrC
+
+docker 명령으로 etcd가 restart 되었는지 확인
+sudo docker ps -a | grep etcd
+
+복원되었는지 확인
+kubectl get pods
+

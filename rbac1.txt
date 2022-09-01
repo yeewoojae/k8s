@@ -1,0 +1,74 @@
+작업 클러스터 : k8s
+
+role-rolebinding
+애플리케이션운영중특정namespace의Pod들을모니터할수있는서비스가요청되었습니다. 
+api-access 네임스페이스의모든pod를view할수있도록다음의작업을진행하시오
+• api-access라는새로운namespace에pod-viewer라는이름의Service Account를만듭니다.
+• podreader-role이라는이름의Role과podreader-rolebinding이라는이름의RoleBinding을만듭니다.
+• 앞서생성한ServiceAccount를API resource Pod에대하여watch, list, get을허용하도록매핑하시오.
+
+1. namespace 생성 : api-access
+2. service account : pod-viewer --namespace api-access
+
+3. role 생성 : podreader-role Pod watch, list, get --namespace api-access
+kubectl create role podreader-role --verb=get --verb=list --verb=watch --resource=pods --namespace api-access
+
+
+4. rolebinding 생성 : podreader-rolebinding role=podreader-role serviceaccount=pod-viewer
+kubectl create rolebinding podreader-rolebinding --role=podreader-role --serviceaccount=api-access:pod-viewer --namespace=api-access
+
+$ kubectl create namespace <api-access>
+-> namespace 생성
+$ kubectl create serviceaccount <pod-viewer> -n <api-access>
+-> serviceaccount 생성(api-access namespace 안에)
+$ kubectl get serviceaccounts --namespace <api-access>
+-> serviceaccount 확인 명령어
+$ kubectl create role <podreader-role> --verb=watch --verb=list --verb=get --resource=pods --namespace <api-access>
+-> role 생성 api-access namespace 안에 / verb, resource 생성
+$ kubectl create rolebinding <podreader-rolebinding> --role=<podreader-role> --serviceaccount=<api-access>(n):<pod-viewer>(sa) -n <api-access>
+-> rolebinding 생성
+$ kubectl describe -n <api-access> rolebindings.rbac.authorization.k8s.io <podreader-rolebinding>
+-> rolebinding 이 정상적으로 생성되었나 확인
+
+clusterrole-clusterrolebinding
+작업Context에서애플리케이션배포를위해새로운ClusterRole을생성하고특정namespace의ServiceAccount를바인드하시오.
+• 다음의resource type에서만Create가허용된ClusterRole deployment-clusterrole을생성합니다. Resource Type: Deployment StatefulSet DaemonSet
+• 미리 생성된 namespace api-access 에cicd-token이라는새로운ServiceAccount를만듭니다.
+• ClusterRole deployment-clusterrole을namespace api-access 로제한된새ServiceAccount cicd-token에바인딩하는합니다.
+
+
+1. clusterrole 생성 : deployment-clusterrole create deployment statefulset daemonset
+kubectl create clusterrole deployment-clusterrole --verb=create --resource=deployment,statefulset,daemonset
+
+kubectl get clusterrole deployment-clusterrole
+kubectl describe clusterrole deployment-clusterrole
+
+2. serviceaccount cicd-token namespace api-access
+kubectl create serviceaccount cicd-token --namespace=api-access
+
+3. clusterrolebinding deployment-clusterrolebinding deployment-clusterrole api-access:cicd-token
+kubectl create clusterrolebinding deployment-clusterrolebinding --clusterrole=deployment-clusterrole --serviceaccount=api-access:cide-token --namespace=api-access
+
+
+$ kubectl create clusterrole <deployment-clusterrole> --verb=create --resource=deployment,statefulset,daemonset
+-> clusterrole 생성 / 각각의 resource에서 선언한 verb만 사용 가능
+$ kubectl get clusterrole deployment-clusterrole
+-> clusterrole 확인 명령어
+$ kubectl create serviceaccount <cicd-token> --namespace=<api-access>
+-> serviceaccount 생성(api-access namespace 안에)
+$ kubectl get serviceaccounts --namespace api-access
+-> serviceaccount 확인 명령어
+$ kubectl create clusterrolebinding deployment-clusterrolebinding --clusterrole=deployment-clusterrole --serviceaccount=api-access:cide-token --namespace=api-access
+$ kubectl describe clusterrolebindings deployment-clusterrolebinding
+
+
+
+
+
+
+
+
+
+
+
+

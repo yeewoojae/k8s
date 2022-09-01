@@ -1,0 +1,39 @@
+컨트롤 플레인에서(마스터 노드)
+업그레이드할버전확인
+sudo yum list --showduplicates kubeadm --disableexcludes=kubernetes | tail -5
+
+kubeadm 업그레이드(1.23.3-0)
+sudo yum install -y kubeadm-1.23.3-0 --disableexcludes=kubernetes
+sudo kubeadm version
+
+sudo kubeadm upgrade plan v1.23.0
+sudo kubeadm upgrade apply v1.23.0
+
+노드 드레인 -> 컨테이너 파드 비우기
+kubectl drain hk8s-m --ignore-daemonsets
+
+kubelet 및 kubectl 업그레이드
+sudo yum install -y kubelet-1.23.3-0 kubectl-1.23.3-0 --disableexcludes=kubernetes
+sudo systemctl daemon-reload
+sudo systemctl restart kubelet
+
+노드 차단 해제(uncordon -> 스케쥴링 다시 되도록 설정)
+kubectl uncordon hk8s-m
+
+==========================================================
+
+워커 노드에서
+sudo yum install -y kubeadm-1.23.3-0 --disableexcludes=kubernetes
+
+sudo kubeadm upgrade node
+
+kubectl drain hk8s-w1 --ignore-daemonsets -> hk8s-w1에서 나가서 콘솔창에서 실행
+
+sudo yum install -y kubelet-1.23.3-0 kubectl-1.23.3-0 --disableexcludes=kubernetes
+
+sudo systemctl daemon-reload
+sudo systemctl restart kubelet
+
+kubectl uncordon hk8s-w1 -> hk8s-w1에서 나가서 콘솔창에서 실행
+
+kubectl get nodes

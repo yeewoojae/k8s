@@ -1,0 +1,26 @@
+kubectl config current-context
+-> 현재 클러스터 확인
+
+kubectl config use-context hk8s
+-> 클러스터 위치 바꾸기
+
+kubelet(cadvisor) -> 컨테이너 관련 정보, 하드웨어 정보 등
+워커노드의 모든 정보 수집 -> 마스터노드의 API Server로 전송
+API Server(pod, deployment ...) -> etcd로전송(key:value 형태로)
+etcd가 손상된다면 쿠버네티스 서비스 진행 X(클러스터 서비스 진행불가)
+etcd는 여러개가 존재 해야함(동일한 etcd 최소 3개이상 유지(기본적으로 3개), HA(고가용성) 클러스터 환경)
+
+etcd는 쿠버네티스 클러스터의 정보를 저장(memory)해서 사용
+모든 etcd 데이터는 etcd 데이터베이스 파일에 보관 : /var/lib/etcd 안에 스냅샷을떠서 복제를 한후에 저장
+
+마스터 노드에서 etcd는 pod(static pod) 형태로 동작
+
+etcdctl snapshot save <snapshot filename>
+-> snapshot file로 저장(/data/etcd-snapshot.db)
+ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 \
+  --cacert=<trusted-ca-file> --cert=<cert-file> --key=<key-file> \
+  snapshot save <backup-file-location>
+
+etcdctl snapshot restore <snapshot filename>
+-> /var/lib/etcd-new/에서 yaml 파일 설정을 바꿔 이쪽에서 부팅되게 설정(또다른 etcd db에서)
+ETCDCTL_API=3 etcdctl --data-dir <data-dir-location> snapshot restore snapshotdb
