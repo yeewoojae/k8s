@@ -52,14 +52,16 @@ kubectl create clusterrolebinding deployment-clusterrolebinding --clusterrole=de
 
 $ kubectl create clusterrole <deployment-clusterrole> --verb=create --resource=deployment,statefulset,daemonset
 -> clusterrole 생성 / 각각의 resource에서 선언한 verb만 사용 가능
-$ kubectl get clusterrole deployment-clusterrole
+$ kubectl get clusterrole <deployment-clusterrole>
 -> clusterrole 확인 명령어
 $ kubectl create serviceaccount <cicd-token> --namespace=<api-access>
 -> serviceaccount 생성(api-access namespace 안에)
-$ kubectl get serviceaccounts --namespace api-access
+$ kubectl get serviceaccounts --namespace <api-access>
 -> serviceaccount 확인 명령어
-$ kubectl create clusterrolebinding deployment-clusterrolebinding --clusterrole=deployment-clusterrole --serviceaccount=api-access:cide-token --namespace=api-access
-$ kubectl describe clusterrolebindings deployment-clusterrolebinding
+$ kubectl create clusterrolebinding <deployment-clusterrolebinding> --clusterrole=<deployment-clusterrole> --serviceaccount=<api-access:cide-token> --namespace=<api-access>
+-> clusterrolebinding 생성
+$ kubectl describe clusterrolebindings <deployment-clusterrolebinding>
+-> clusterrolebinding 생성 확인 명령어
 
 
 
