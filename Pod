@@ -1,0 +1,68 @@
+* config 를 통한 pod 생성
+kubectl run(pod 실행) web(pod 이름) <--image=nginx:1.14 --port=80>(container)
+
+* yaml 파일을 통한 pod 생성
+kubectl run web --image=nginx:1.14 --port=8 --dry-run=client -o yaml > web.yaml -> yaml 파일 생성
+vi web.yaml
+=================================================
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web
+spec:
+  containers:
+  - image: nginx:1.14
+    name: web
+    ports:
+    - containerPort: 8
+    resources: {}
+=================================================
+kubectl apply -f web.yaml
+kubectl get pods web.yaml
+
+kubectl delete pods web
+kubectl delete -f web.yaml
+
+
+* 시험문제 풀때는 직접 typing 하지말고 copy&paste 방식으로!!
+◾ 작업클러스터: k8s
+'cka-exam'이라는namespace를만들고, 'cka-exam' namespace에아래와같은Pod를생성하시오.
+• pod Name: pod-01
+• image: busybox
+• 환경변수: CERT = "CKA-cert"
+• command: /bin/sh
+• args: -c "while true; do echo $(CERT); sleep 10;done"
+
+1. 클러스터 이동 -> console 에서 진행 / 클러스터는 k8s
+kubectl config current-context
+kubectl config use-context k8s
+
+2. namespace 생성
+kubectl create namespace cka-exam
+
+3. pod 생성
+kubectl run pod-01 --image=busybox --dry-run=client -o yaml > 3-1.yaml
+============================================================================
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: pod-01
+  name: pod-01
+  namespace: cka-exam
+spec:
+  containers:
+  - image: busybox
+    name: pod-01
+    env:
+    - name: CERT
+      value: "CKA-cert"
+    command: ["/bin/sh"]
+    args: ["-c", "while true; do echo $(CERT); sleep 10;done"]
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+============================================================================
+kubectl apply -f 3-1.yaml
