@@ -1,0 +1,161 @@
+작업 클러스터 : k8s
+
+role-rolebinding
+애플리케이션운영중특정namespace의Pod들을모니터할수있는서비스가요청되었습니다. 
+api-access 네임스페이스의모든pod를view할수있도록다음의작업을진행하시오
+• api-access라는새로운namespace에pod-viewer라는이름의Service Account를만듭니다.
+• podreader-role이라는이름의Role과podreader-rolebinding이라는이름의RoleBinding을만듭니다.
+• 앞서생성한ServiceAccount를API resource Pod에대하여watch, list, get을허용하도록매핑하시오.
+
+1. namespace 생성 : api-access
+2. service account : pod-viewer --namespace api-access
+
+3. role 생성 : podreader-role Pod watch, list, get --namespace api-access
+kubectl create role podreader-role --verb=get --verb=list --verb=watch --resource=pods --namespace api-access
+
+
+4. rolebinding 생성 : podreader-rolebinding role=podreader-role serviceaccount=pod-viewer
+kubectl create rolebinding podreader-rolebinding --role=podreader-role --serviceaccount=api-access:pod-viewer --namespace=api-access
+
+$ kubectl create namespace <api-access>
+-> namespace 생성
+$ kubectl create serviceaccount <pod-viewer> -n <api-access>
+-> serviceaccount 생성(api-access namespace 안에)
+$ kubectl get serviceaccounts --namespace <api-access>
+-> serviceaccount 확인 명령어
+$ kubectl create role <podreader-role> --verb=watch --verb=list --verb=get --resource=pods --namespace <api-access>
+-> role 생성 api-access namespace 안에 / verb, resource 생성
+$ kubectl create rolebinding <podreader-rolebinding> --role=<podreader-role> --serviceaccount=<api-access>(n):<pod-viewer>(sa) -n <api-access>
+-> rolebinding 생성
+$ kubectl describe -n <api-access> rolebindings.rbac.authorization.k8s.io <podreader-rolebinding>
+-> rolebinding 이 정상적으로 생성되었나 확인
+
+clusterrole-clusterrolebinding
+작업Context에서애플리케이션배포를위해새로운ClusterRole을생성하고특정namespace의ServiceAccount를바인드하시오.
+• 다음의resource type에서만Create가허용된ClusterRole deployment-clusterrole을생성합니다. Resource Type: Deployment StatefulSet DaemonSet
+• 미리 생성된 namespace api-access 에cicd-token이라는새로운ServiceAccount를만듭니다.
+• ClusterRole deployment-clusterrole을namespace api-access 로제한된새ServiceAccount cicd-token에바인딩하는합니다.
+
+
+1. clusterrole 생성 : deployment-clusterrole create deployment statefulset daemonset
+kubectl create clusterrole deployment-clusterrole --verb=create --resource=deployment,statefulset,daemonset
+
+kubectl get clusterrole deployment-clusterrole
+kubectl describe clusterrole deployment-clusterrole
+
+2. serviceaccount cicd-token namespace api-access
+kubectl create serviceaccount cicd-token --namespace=api-access
+
+3. clusterrolebinding deployment-clusterrolebinding deployment-clusterrole api-access:cicd-token
+kubectl create clusterrolebinding deployment-clusterrolebinding --clusterrole=deployment-clusterrole --serviceaccount=api-access:cide-token --namespace=api-access
+
+
+$ kubectl create clusterrole <deployment-clusterrole> --verb=create --resource=deployment,statefulset,daemonset
+-> clusterrole 생성 / 각각의 resource에서 선언한 verb만 사용 가능
+$ kubectl get clusterrole <deployment-clusterrole>
+-> clusterrole 확인 명령어
+$ kubectl create serviceaccount <cicd-token> --namespace=<api-access>
+-> serviceaccount 생성(api-access namespace 안에)
+$ kubectl get serviceaccounts --namespace <api-access>
+-> serviceaccount 확인 명령어
+$ kubectl create clusterrolebinding <deployment-clusterrolebinding> --clusterrole=<deployment-clusterrole> --serviceaccount=<api-access:cide-token> --namespace=<api-access>
+-> clusterrolebinding 생성
+$ kubectl describe clusterrolebindings <deployment-clusterrolebinding>
+-> clusterrolebinding 생성 확인 명령어
+
+kubernetes-admin 계정으로 컨테이너를 관리하는것은 보안적인 관점에서 위험
+-> 그러므로 새로운 user를 생성하여 각 pod, deployment 같은 resource 들을 role을 생성하여 관리 / User - Role - Rolebinding 순으로
+
+CSR(Certificate Signing Request)를통해app-manager 인증서를발급받은userapp-manager에게cluster내모든namespace의deployment, pod, service리소스를create, list, get, update, delete할수있는권한을할당하시오.
+• user name: app-manager
+• certificate name: app-manager
+• clusterRole name:app-access
+• clusterRoleBinding name: app-access-binding
+
+1. User : app-manager
+a.인증서(시험에서는 보통 인증서를 만드는 과정은 잘 나오지 않음)
+openssl genrsa -out app-manager.key 2048
+openssl req -new -key app-manager.key -out app-manager.csr -subj "/CN=app-manager"
+-> 인증서를 간결하게 만들기 위해 -subj 옵션 사용
+cat > app-manager.yaml
+cat app-manager.csr | base64 | tr -d "\n" -> app-manager -> 키값 설정을 위해 키값생성
+kubectl get csr -> csr이 잘 만들어졌는지 확인
+kubectl apply -f app-manager.yaml -> csr 파일 만들어 달라고 요청(요청만 한 상태에서 확인해보면 pending 상태임)
+================================================================================================================
+[user@k8s-master ~]$ kubectl apply -f app-manager.yaml
+certificatesigningrequest.certificates.k8s.io/app-manager created
+[user@k8s-master ~]$ kubectl get csr
+NAME          AGE   SIGNERNAME                            REQUESTOR          REQUESTEDDURATION   CONDITION
+app-manager   8s    kubernetes.io/kube-apiserver-client   kubernetes-admin   <none>              Pending
+================================================================================================================
+kubectl certificate approve app-manager
+===================================================================================================================
+[user@k8s-master ~]$ kubectl certificate approve app-manager
+certificatesigningrequest.certificates.k8s.io/app-manager approved
+[user@k8s-master ~]$ kubectl get csr
+NAME          AGE    SIGNERNAME                            REQUESTOR          REQUESTEDDURATION   CONDITION
+app-manager   113s   kubernetes.io/kube-apiserver-client   kubernetes-admin   <none>              Approved,Issued
+===================================================================================================================
+kubectl get csr/app-manager -o yaml
+kubectl get csr app-manager -o jsonpath='{.status.certificate}'| base64 -d > app-manager.crt
+
+b. app-manager.crt 인증서를 사용하는 user app-manager 등록(나중에)
+
+
+2. ClusterRole : app-access
+kubectl create clusterrole app-access --verb=create,list,get,update,delete --resource=deployment,pod,service 
+-> 순서는 상관없지만 verb, resource "," 사이에 공백이 없어야함
+===================================================================================================================
+[user@k8s-master ~]$ kubectl get clusterrole app-access
+NAME         CREATED AT
+app-access   2022-09-05T01:35:42Z
+[user@k8s-master ~]$ kubectl describe clusterrole app-access
+Name:         app-access
+Labels:       <none>
+Annotations:  <none>
+PolicyRule:
+  Resources         Non-Resource URLs  Resource Names  Verbs
+  ---------         -----------------  --------------  -----
+  pods              []                 []              [create list get update delete]
+  services          []                 []              [create list get update delete]
+  deployments.apps  []                 []              [create list get update delete]
+===================================================================================================================
+
+3. ClusterRoleBinding : app-access-binding
+kubectl create clusterrolebinding app-access-binding --clusterrole=app-access --user=app-manager
+===================================================================================================================
+[user@k8s-master ~]$ kubectl get clusterrolebinding app-access-binding
+NAME                 ROLE                     AGE
+app-access-binding   ClusterRole/app-access   21s
+[user@k8s-master ~]$ kubectl describe clusterrolebinding app-access-binding
+Name:         app-access-binding
+Labels:       <none>
+Annotations:  <none>
+Role:
+  Kind:  ClusterRole
+  Name:  app-access
+Subjects:
+  Kind  Name         Namespace
+  ----  ----         ---------
+  User  app-manager
+=================================================================================================================== -> 시험은 여기까지
+
+* 추가적인 것
+kubectl config set-credentials app-manager --client-key=app-manager.key --client-certificate=app-manager.crt --embed-certs=true
+=====================================
+users:
+- name: app-manager
+  user:
+    client-certificate-data: REDACTED
+    client-key-data: REDACTED
+======================================
+kubectl config set-context app-manager --cluster=kubernetes --user=app-manager
+======================================
+contexts:
+- context:
+    cluster: kubernetes
+    user: app-manager
+  name: app-manager
+======================================
+kubectl config use-context app-manager
+
