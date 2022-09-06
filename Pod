@@ -66,3 +66,103 @@ spec:
 status: {}
 ============================================================================
 kubectl apply -f 3-1.yaml
+
+
+◾ 작업클러스터: hk8s
+Pod "custom-app"의log를모니터링하고'file not found'메세지를포함하는로그라인인추출하세요.
+추출된결과는/opt/REPORT/2022/custom-app-log에기록하세요.
+
+kubectl config use-context hk8s
+
+[user@console ~]$ kubectl logs custom-app | grep 'file not found'
+error: file not found
+error: file not found
+
+kubectl logs custom-app | grep 'file not found' > /opt/REPORT/2022/custom-app-log
+
+
+Static Pod
+• API 서버없이특정노드에있는kubelet 에의해직접관리
+• /etc/kubernetes/manifests/ 디렉토리에pod yaml 파일을저장시적용됨
+[root@hk8s-w1 ~]# cat /var/lib/kubelet/config.yaml
+staticPodPath: /etc/kubernetes/manifests
+cd /etc/kubernetes/manifests -> 디렉토리 변경
+[root@hk8s-w1 manifests]# kubectl get pods -> 현재 pod 확인
+[root@hk8s-w1 manifests]# kubectl run webserver --image=nginx:1.14 --port=80 --dry-run=client -o yaml > webserver.yaml
+[user@console ~]$ kubectl get pods
+
+[root@hk8s-w1 manifests]# rm webserver.yaml
+rm: remove regular file ‘webserver.yaml’? y
+[user@console ~]$ kubectl describe pods webserver-hk8s-w1
+Error from server (NotFound): pods "webserver-hk8s-w1" not found
+
+hk8s-w1 노드에nginx-static-pod.yaml라는이름의Static Pod를생성하세요.
+• pod name:nginx-static-pod
+• image: nginx
+• port : 80
+
+[user@console ~]$ ssh hk8s-w1
+cat /var/lib/kubelet/config.yaml
+[user@hk8s-w1 ~]$ sudo -i
+[root@hk8s-w1 ~]# cd /etc/kubernetes/manifests
+[root@hk8s-w1 ~]# kubectl run nginx-static-pod --image=nginx --port=80 --dry-run=client -o yaml > nginx-static-pod.yaml
+[root@hk8s-w1 ~]# cat nginx-static-pod.yaml
+======================================================================================================
+[user@console ~]$ kubectl get pods
+NAME                       READY   STATUS             RESTARTS          AGE
+busybox-sleep              1/1     Running            5 (5h55m ago)     188d
+campus-01                  1/1     Running            5 (5h55m ago)     188d
+cka-webserver              1/1     Running            5 (5h55m ago)     188d
+custom-app                 1/1     Running            5 (5h55m ago)     188d
+fast-01                    1/1     Running            5 (5h55m ago)     188d
+nginx-static-pod-hk8s-w1   1/1     Running            0                 179m
+web                        0/1     CrashLoopBackOff   182 (3m22s ago)   188d
+======================================================================================================
+=========================================================================================================================
+[user@console ~]$ kubectl describe pods nginx-static-pod
+Name:         nginx-static-pod-hk8s-w1
+Namespace:    default
+Priority:     0
+Node:         hk8s-w1/10.0.2.51
+Start Time:   Tue, 06 Sep 2022 13:12:26 +0900
+Labels:       run=nginx-static-pod
+Annotations:  cni.projectcalico.org/containerID: b66eb4cf2c4f655a802a6c56594c4b6fccef23fdcee7c0de893b63aeab58b16b
+              cni.projectcalico.org/podIP: 192.168.75.121/32
+              cni.projectcalico.org/podIPs: 192.168.75.121/32
+              kubernetes.io/config.hash: 22e7a4649b1c8620f757a60a8ef30c51
+              kubernetes.io/config.mirror: 22e7a4649b1c8620f757a60a8ef30c51
+              kubernetes.io/config.seen: 2022-09-06T13:12:26.868552665+09:00
+              kubernetes.io/config.source: file
+Status:       Running
+IP:           192.168.75.121
+IPs:
+  IP:           192.168.75.121
+Controlled By:  Node/hk8s-w1
+Containers:
+  nginx-static-pod:
+    Container ID:   docker://e66fcee2b071e7d52bef773b87305971f7875ba0ead4e764a98a02cc336b0d11
+    Image:          nginx
+    Image ID:       docker-pullable://nginx@sha256:b95a99feebf7797479e0c5eb5ec0bdfa5d9f504bc94da550c2f58e839ea6914f
+    Port:           80/TCP
+    Host Port:      0/TCP
+    State:          Running
+      Started:      Tue, 06 Sep 2022 13:12:31 +0900
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:         <none>
+Conditions:
+  Type              Status
+  Initialized       True
+  Ready             True
+  ContainersReady   True
+  PodScheduled      True
+Volumes:            <none>
+QoS Class:          BestEffort
+Node-Selectors:     <none>
+Tolerations:        :NoExecute op=Exists
+Events:             <none>
+=========================================================================================================================
+
+
+
