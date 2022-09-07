@@ -1,0 +1,61 @@
+Deployment를 사용하는 이유(HA(고가용성) 보장, 24 * 7(24시간 주7일) 보장)
+-> pod는 controller가 없어서 worker node가 사용불가 할때 요청사항을 보장해주지 못함
+-> Deployment는 Replicaset 안에 controller가 존재해 요청사항을 보장해줌
+-> 애플리케이션 pod 수에 대해 scale out(확장), scale in(축소) 기능 제공
+
+• 쿠버네티스클러스터에서애플리케이션을배포하는가장일반적인방식
+• ReplicaSet 컨트롤러를 통해 replica 수 보장 및 scaling 가능
+• Rolling update 또는 Roll back 지원 -> 서비스 도중에 컨테이너를 업데이트하거나 이전 버전으로 다시 되돌릴 수 있음
+
+ex. deploy-nginx -> replicaset : xxx(hash 값) / replica 2개 보장 요청 
+-> 무엇을 기준으로 어떤 pod를 보장해야하나 => * selector를 통해 보장(app(label name): webui(value)) 이러한 값의 label을 가지고 있는 pod 2개를 보장
+
+[user@console ~]$ vi deploy-nginx.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deploy-nginx
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: nginx
+  template:             -> 이러한 컨테이너를 2개 실행(단, app: webui 를 꼭 가지고 있어야 한다.)
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+        
+[user@console ~]$ kubectl apply -f deploy-nginx.yaml
+[user@console ~]$ kubectl get pods
+NAME                           READY   STATUS        RESTARTS      AGE
+deploy-nginx-fdc894fd8-frvg5   1/1     Running       0             13s
+deploy-nginx-fdc894fd8-pt2w9   1/1     Running       0             13s
+
+deploy-nginx-fdc894fd8-frvg5 / deploy-nginx(deployment name), fdc894fd8(replica set - controller name), frvg5(pod name)
+
+[user@console ~]$  kubectl get replicaset
+NAME                     DESIRED   CURRENT   READY   AGE
+deploy-nginx-fdc894fd8   2         2         2       3m43s
+
+[user@console ~]$  kubectl get pods --show-labels
+NAME                           READY   STATUS        RESTARTS      AGE     LABELS
+deploy-nginx-fdc894fd8-frvg5   1/1     Running       0             4m40s   app=webui,pod-template-hash=fdc894fd8
+deploy-nginx-fdc894fd8-pt2w9   1/1     Running       0             4m40s   app=webui,pod-template-hash=fdc894fd8
+
+[user@console ~]$ kubectl get replicasets.apps deploy-nginx-fdc894fd8 -o wide
+NAME                     DESIRED   CURRENT   READY   AGE     CONTAINERS   IMAGES         SELECTOR
+deploy-nginx-fdc894fd8   2         2         2       6m23s   nginx        nginx:1.14.2   app=webui,pod-template-hash=fdc894fd8
+
+[user@console ~]$ kubectl delete pod deploy-nginx-fdc894fd8-pt2w9
+pod "deploy-nginx-fdc894fd8-pt2w9" deleted
+
+[user@console ~]$  kubectl get pods --show-labels   -> pod를 삭제해도 2개를 보장해야 하기 때문에 삭제 후 바로 pod 생성
+NAME                           READY   STATUS        RESTARTS      AGE     LABELS
+deploy-nginx-fdc894fd8-frvg5   1/1     Running       0             9m15s   app=webui,pod-template-hash=fdc894fd8
+deploy-nginx-fdc894fd8-ss5q9   1/1     Running       0             5s      app=webui,pod-template-hash=fdc894fd8
