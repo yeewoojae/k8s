@@ -1,0 +1,122 @@
+Multi container
+-> 컨테이너간에 의존성이 있을때 묶어서 사용
+apiVersion: v1
+kind: Pod
+metadata:
+  name: two-containers
+spec:
+
+  restartPolicy: Never
+
+  volumes:
+  - name: shared-data
+    emptyDir: {}
+
+  containers:
+
+  - name: nginx-container -> 1번 컨테이너
+    image: nginx
+    volumeMounts:
+    - name: shared-data
+      mountPath: /usr/share/nginx/html
+
+  - name: debian-container -> 2번 컨테이너
+    image: debian
+    volumeMounts:
+    - name: shared-data
+      mountPath: /pod-data
+    command: ["/bin/sh"]
+    args: ["-c", "echo Hello from the debian container > /pod-data/index.html"]
+    
+    
+◾작업클러스터: k8s
+4개의컨테이너를동작시키는eshop-frontendPod를생성하시오.
+• pod image: nginx, redis, memcached, consul
+
+[user@console ~]$ kubectl run eshop-frontend --image=nginx --dry-run=client -o yaml > 3-2.yaml -> 먼저 한개를 생성하면서 yaml 파일 생성
+[user@console ~]$ vi 3-2.yaml -> 필요없는 내용들은 지워주면서 새로운 컨테이너 삽입
+apiVersion: v1
+kind: Pod
+metadata:
+  name: eshop-frontend
+spec:
+  containers:
+  - image: nginx
+    name: nginx-container
+  - image: redis
+    name: redis-container
+  - image: memcached
+    name: memcached-container
+  - image: consul
+    name: consul-container
+[user@console ~]$ kubectl apply -f 3-2.yaml
+[user@console ~]$ kubectl get pods eshop-frontend
+NAME             READY   STATUS    RESTARTS   AGE
+eshop-frontend   4/4     Running   0          77s
+
+
+Sidecar-container(빈번하게 출제)
+-> 기본컨테이너기능을확장하기위해사용 본래의컨테이너는기본서비스에충실하고, 추가기능을별도의컨테이너를이용해적용
+-> 웹서버는기본서비스에충실하고, 추가로생성되는웹서버로그는별도의사이드카컨테이너가수집하여외부log aggregator로전송하는형태의서비스
+
+◾ 작업클러스터: k8s
+현재운영중인eshop-cart-app Pod의로그를Kubernetes built-in logging 아키텍처(예: kubectllogs)에통합하는로그스트리밍사이드카컨테이너를운영하시오.
+• busybox이미지를사용하여price라는이름의사이드카컨테이너를기존eshop-cart-app에추가합니다.
+• 새price컨테이너는다음과같은command를실행해야합니다. Command: /bin/sh, -c, “tail -n+1 -f /var/log/cart-app.log”
+• /var/log에마운트된볼륨을사용하여사이드카컨테이너에서로그파일cart-app.log를사용해야합니다.
+• eshop-cart-app Pod와cart-app 컨테이너를수정하지마시오.
+1. eshop-cart-app pod -> yaml
+2. side-cat container 추가
+name: price
+image: busybox
+command: "/bin/sh", "-c", “tail -n+1 -f /var/log/cart-app.log”
+volume mount
+    volumeMounts:
+    - mountPath: /var/log
+      name: varlog
+===================================================================================================
+[user@console ~]$ kubectl get pod eshop-cart-app -o yaml > 3-3.yaml
+[user@console ~]$ vi 3-3.yaml
+  name: eshop-cart-app
+spec:
+  containers:
+  - command:
+    - /bin/sh
+    - -c
+    - 'i=1;while :;do  echo -e "$i: Price: $((RANDOM % 10000 + 1))" >> /var/log/cart-app.log;
+      i=$((i+1)); sleep 2; done'
+    image: busybox
+    imagePullPolicy: Always
+    name: cart-app
+    volumeMounts:
+    - mountPath: /var/log
+      name: varlog
+[  - name: price 
+    image: busybox
+    args: [/bin/sh, -c, 'tail -n+1 -f /var/log/cart-app.log']
+    volumeMounts:
+    - name: varlog
+      mountPath: /var/log   ] -> sidecar-container
+  volumes:
+  - emptyDir: {}
+    name: varlog
+===================================================================================================
+[user@console ~]$ kubectl get pods
+NAME                        READY   STATUS        RESTARTS      AGE
+eshop-cart-app              2/2     Running       0             29s
+eshop-frontend              4/4     Running       0             27m
+front-end-8dc556958-6nwwn   1/1     Running       0             29m
+front-end-8dc556958-bw8x5   1/1     Running       0             29m
+front-end-8dc556958-fvlpx   1/1     Terminating   7 (26h ago)   187d
+front-end-8dc556958-vcr4s   1/1     Terminating   7 (26h ago)   187d
+[user@console ~]$ kubectl logs eshop-cart-app -c price
+1: Price: 6698
+2: Price: 681
+3: Price: 4826
+4: Price: 5802
+5: Price: 2762
+6: Price: 3104
+7: Price: 2056
+8: Price: 1650
+9: Price: 4016
+10: Price: 8514
