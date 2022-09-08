@@ -10,6 +10,7 @@ Deployment를 사용하는 이유(HA(고가용성) 보장, 24 * 7(24시간 주7�
 ex. deploy-nginx -> replicaset : xxx(hash 값) / replica 2개 보장 요청 
 -> 무엇을 기준으로 어떤 pod를 보장해야하나 => * selector를 통해 보장(app(label name): webui(value)) 이러한 값의 label을 가지고 있는 pod 2개를 보장
 
+[user@console ~]$ kubectl create deployment deploy-nginx --image=nginx:1.14 --replicas=2 --port=80 --dry-run=client -o yaml > deploy-nginx.yaml
 [user@console ~]$ vi deploy-nginx.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -59,3 +60,125 @@ pod "deploy-nginx-fdc894fd8-pt2w9" deleted
 NAME                           READY   STATUS        RESTARTS      AGE     LABELS
 deploy-nginx-fdc894fd8-frvg5   1/1     Running       0             9m15s   app=webui,pod-template-hash=fdc894fd8
 deploy-nginx-fdc894fd8-ss5q9   1/1     Running       0             5s      app=webui,pod-template-hash=fdc894fd8
+
+
+• Deployment는ReplicaSet컨트롤러를이용해Pod scaling을지원
+kubectl scaledeployment <deploy_name> --replicas=N
+• Scale-out: 애플리케이션Pod수를확장하여처리능력을향상
+• Scale-in: 애플리케이션Pod수를줄여서리소스낭비최소화
+kubectl scaledeployment deploy-nginx--replicas=3
+
+[user@console ~]$ kubectl scale deployment deploy-nginx --replicas=3
+deployment.apps/deploy-nginx scaled
+[user@console ~]$ kubectl get pod
+NAME                           READY   STATUS        RESTARTS       AGE
+deploy-nginx-fdc894fd8-cnl9k   1/1     Running       0              10s
+deploy-nginx-fdc894fd8-frvg5   1/1     Running       1 (25m ago)    18h
+deploy-nginx-fdc894fd8-wdjcc   1/1     Running       0              12m
+
+[user@console ~]$ kubectl scale deployment deploy-nginx --replicas=2    -> 가장 최근에 생성된 replica 삭제
+deployment.apps/deploy-nginx scaled
+[user@console ~]$ kubectl get pod
+NAME                           READY   STATUS        RESTARTS       AGE
+deploy-nginx-fdc894fd8-frvg5   1/1     Running       1 (26m ago)    18h
+deploy-nginx-fdc894fd8-wdjcc   1/1     Running       0              13m
+
+◾작업클러스터: k8s
+a. webserver 라는이름으로deployment를생성하시오.
+• Name: webserver
+• 2replicas
+• label: app_env_stage=dev
+• container name: webserver
+• container image: nginx:1.14
+b. 다음, webserver Deployment의pod 수를3개로확장하시오.
+
+kubectl create deployment webserver --image=nginx:1.14 --replicas=2 --port=80 --dry-run=client -o yaml > webserver.yaml
+vi webserver.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: webserver
+  name: webserver
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app_env_stage: dev
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app_env_stage: dev
+    spec:
+      containers:
+      - image: nginx:1.14
+        name: webserver
+        ports:
+        - containerPort: 80
+        resources: {}
+status: {}
+
+kubectl apply -f webserver.yaml
+kubectl get pods --show-labels
+kubectl scale deployment webserver --replicas=3
+
+
+• Rolling Update : 동작중인애플리케이션의서비스중단없이점진적으로Pod 업데이트
+kubectl set image deployment <deploy_name> <container_name>=<new_version_image> --record
+[user@console ~]$ kubectl set image deployment deploy-nginx nginx=nginx:1.15 --record
+Flag --record has been deprecated, --record will be removed in the future
+deployment.apps/deploy-nginx image updated
+[user@console ~]$ kubectl get deployments.apps -o wide
+NAME           READY   UP-TO-DATE   AVAILABLE   AGE     CONTAINERS   IMAGES       SELECTOR
+deploy-nginx   3/3     3            3           23h     nginx        nginx:1.15   app=webui
+front-end      2/2     2            2           189d    http         nginx        run=nginx
+webserver      3/3     3            3           4h47m   webserver    nginx:1.14   app_env_stage=dev
+[user@console ~]$ kubectl describe deployments.apps deploy-nginx
+Name:                   deploy-nginx
+Namespace:              default
+CreationTimestamp:      Wed, 07 Sep 2022 16:47:54 +0900
+Labels:                 <none>
+Annotations:            deployment.kubernetes.io/revision: 3
+                        kubernetes.io/change-cause: kubectl set image deployment deploy-nginx nginx=nginx:1.16 --record=true
+Selector:               app=webui
+Replicas:               3 desired | 3 updated | 3 total | 3 available | 0 unavailable
+StrategyType:           RollingUpdate
+MinReadySeconds:        0
+RollingUpdateStrategy:  25% max unavailable, 25% max surge
+Pod Template:
+  Labels:  app=webui
+  Containers:
+   nginx:
+    Image:        nginx:1.16
+
+• Rollback: 동작중인애플리케이션서비스중단없이이전버전으로되돌리기
+kubectl rollout historydeployment <deploy_name>
+kubectl rollout undodeployment <deploy_name>
+kubectl rollout undodeployment <deploy_name> --to-revision=NUMBER
+
+[user@console ~]$ kubectl rollout history deployment deploy-nginx
+deployment.apps/deploy-nginx
+REVISION  CHANGE-CAUSE
+1         <none>
+2         kubectl set image deployment deploy-nginx nginx=nginx:1.15 --record=true
+3         kubectl set image deployment deploy-nginx nginx=nginx:1.16 --record=true
+
+[user@console ~]$ kubectl rollout undo deployment deploy-nginx
+deployment.apps/deploy-nginx rolled back
+[user@console ~]$ kubectl rollout history deployment deploy-nginx
+deployment.apps/deploy-nginx
+REVISION  CHANGE-CAUSE
+1         <none>
+3         kubectl set image deployment deploy-nginx nginx=nginx:1.16 --record=true
+4         kubectl set image deployment deploy-nginx nginx=nginx:1.15 --record=true
+-> 2번에 있던 1.15가 현재로 다시 불려왔기 때문에 4번으로 옮 현재 revision은 4번
+
+◾ 작업클러스터: k8s
+Deployment를이용해nginx 파드를3개배포한다음컨테이너이미지버전을rolling update하고update record를기록합니다. 마지막으로컨테이너이미지를previous version으로roll back 합니다.
+• name: eshop-payment
+• Image : nginx
+• Image version: 1.16
+• update image version: 1.17
+• label: app=payment, environment=production
