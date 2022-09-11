@@ -182,3 +182,37 @@ Deployment를이용해nginx 파드를3개배포한다음컨테이너이미지버
 • Image version: 1.16
 • update image version: 1.17
 • label: app=payment, environment=production
+
+$ kubectl create deployment eshop-payment --image=nginx:1.16 --dry-run=client -o yaml > 3-4.yaml
+$ vi 3-4.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eshop-payment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: payment
+      environment: production
+  template:
+    metadata:
+      labels:
+        app: payment
+        environment: production
+    spec:
+      containers:
+      - image: nginx:1.16
+        name: nginx
+        ports:
+        - containerPort: 80
+        resources: {}
+status: {}
+
+$ kubectl apply -f 3-4.yaml --record
+-> kubectl get pods 로 pod 3개인지 확인
+$ kubectl set image deployment eshop-payment nginx=nginx:1.17 --record
+-> kubectl rollout history deployment eshop-payment 명령어로 revision 순서 확인
+$ kubectl rollout undo deployment eshop-payment
+-> kubectl rollout history deployment eshop-payment 명령어로 현재 revision 이 (원래 버전으로 복원)으로 돌아왔는지 확인
