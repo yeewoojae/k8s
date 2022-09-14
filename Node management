@@ -6,5 +6,118 @@ node는 Control-plane에 의해 관리
 
 특정 node의 스케쥴링 중단(cordon) 및 허용(uncordon)
 kubectl cordon <NODE_NAME>
-kubectl uncordon <NODE_NAME>
+kubectl uncordon <NODE_NAME> -> uncordon 한 후에 pod 에 바로 적용되지는 않고 그 다음 명령어 부터 적용
 
+[user@console ~]$ kubectl get nodes
+NAME          STATUS   ROLES                  AGE    VERSION
+k8s-master    Ready    control-plane,master   233d   v1.22.4
+k8s-worker1   Ready    <none>                 233d   v1.22.4
+k8s-worker2   Ready    <none>                 233d   v1.22.4
+[user@console ~]$ kubectl cordon k8s-worker2
+node/k8s-worker2 cordoned
+[user@console ~]$ kubectl get nodes
+NAME          STATUS                     ROLES                  AGE    VERSION
+k8s-master    Ready                      control-plane,master   233d   v1.22.4
+k8s-worker1   Ready                      <none>                 233d   v1.22.4
+k8s-worker2   Ready,SchedulingDisabled   <none>                 233d   v1.22.4
+[user@console ~]$ kubectl get pods -o wide
+NAME                            READY   STATUS    RESTARTS      AGE    IP             NODE          NOMINATED NODE   READINESS GATES
+deploy-nginx-7cdd684976-82429   1/1     Running   0             33s    10.244.1.109   k8s-worker1   <none>           <none>
+deploy-nginx-7cdd684976-d2kqk   1/1     Running   0             36s    10.244.1.107   k8s-worker1   <none>           <none>
+deploy-nginx-7cdd684976-gghq8   1/1     Running   0             34s    10.244.1.108   k8s-worker1   <none>           <none>
+deploy-nginx-7cdd684976-r9n6x   1/1     Running   0             36s    10.244.1.106   k8s-worker1   <none>           <none>
+eshop-cart-app                  2/2     Running   4 (55m ago)   7d8h   10.244.1.98    k8s-worker1   <none>           <none>
+eshop-frontend                  4/4     Running   8 (55m ago)   7d8h   10.244.1.99    k8s-worker1   <none>           <none>
+eshop-payment-db947cfb7-dht64   1/1     Running   1 (55m ago)   6d1h   10.244.1.95    k8s-worker1   <none>           <none>
+eshop-payment-db947cfb7-lgcft   1/1     Running   1 (55m ago)   6d1h   10.244.1.88    k8s-worker1   <none>           <none>
+eshop-payment-db947cfb7-ssl8g   1/1     Running   1 (55m ago)   6d1h   10.244.1.93    k8s-worker1   <none>           <none>
+front-end-8dc556958-6nwwn       1/1     Running   2 (55m ago)   7d8h   10.244.1.89    k8s-worker1   <none>           <none>
+front-end-8dc556958-bw8x5       1/1     Running   2 (55m ago)   7d8h   10.244.1.104   k8s-worker1   <none>           <none>
+webserver-78f746b644-4qmp2      1/1     Running   1 (55m ago)   6d7h   10.244.1.103   k8s-worker1   <none>           <none>
+webserver-78f746b644-psx4r      1/1     Running   1 (55m ago)   6d7h   10.244.1.91    k8s-worker1   <none>           <none>
+webserver-78f746b644-rl982      1/1     Running   1 (55m ago)   6d7h   10.244.1.97    k8s-worker1   <none>           <none>
+
+[user@console ~]$ kubectl uncordon k8s-worker2
+node/k8s-worker2 uncordoned
+[user@console ~]$ kubectl get nodes
+NAME          STATUS   ROLES                  AGE    VERSION
+k8s-master    Ready    control-plane,master   233d   v1.22.4
+k8s-worker1   Ready    <none>                 233d   v1.22.4
+k8s-worker2   Ready    <none>                 233d   v1.22.4
+[user@console ~]$ kubectl delete pod deploy-nginx-7cdd684976-82429 deploy-nginx-7cdd684976-d2kqk
+pod "deploy-nginx-7cdd684976-82429" deleted
+pod "deploy-nginx-7cdd684976-d2kqk" deleted
+[user@console ~]$ kubectl get pods -o wide
+NAME                            READY   STATUS    RESTARTS      AGE     IP             NODE          NOMINATED NODE   READINESS GATES
+deploy-nginx-7cdd684976-25q6z   1/1     Running   0             9s      10.244.2.110   k8s-worker2   <none>           <none>
+deploy-nginx-7cdd684976-gghq8   1/1     Running   0             5m28s   10.244.1.108   k8s-worker1   <none>           <none>
+deploy-nginx-7cdd684976-r9n6x   1/1     Running   0             5m30s   10.244.1.106   k8s-worker1   <none>           <none>
+deploy-nginx-7cdd684976-vnmlf   1/1     Running   0             10s     10.244.2.109   k8s-worker2   <none>           <none>
+eshop-cart-app                  2/2     Running   4 (60m ago)   7d8h    10.244.1.98    k8s-worker1   <none>           <none>
+eshop-frontend                  4/4     Running   8 (60m ago)   7d8h    10.244.1.99    k8s-worker1   <none>           <none>
+eshop-payment-db947cfb7-dht64   1/1     Running   1 (60m ago)   6d1h    10.244.1.95    k8s-worker1   <none>           <none>
+eshop-payment-db947cfb7-lgcft   1/1     Running   1 (60m ago)   6d1h    10.244.1.88    k8s-worker1   <none>           <none>
+eshop-payment-db947cfb7-ssl8g   1/1     Running   1 (60m ago)   6d1h    10.244.1.93    k8s-worker1   <none>           <none>
+front-end-8dc556958-6nwwn       1/1     Running   2 (60m ago)   7d8h    10.244.1.89    k8s-worker1   <none>           <none>
+front-end-8dc556958-bw8x5       1/1     Running   2 (60m ago)   7d8h    10.244.1.104   k8s-worker1   <none>           <none>
+webserver-78f746b644-4qmp2      1/1     Running   1 (60m ago)   6d7h    10.244.1.103   k8s-worker1   <none>           <none>
+webserver-78f746b644-psx4r      1/1     Running   1 (60m ago)   6d7h    10.244.1.91    k8s-worker1   <none>           <none>
+webserver-78f746b644-rl982      1/1     Running   1 (60m ago)   6d7h    10.244.1.97    k8s-worker1   <none>           <none>
+
+Node 비우기
+• 노드비우기(drain)
+특정 node 에서 실행중인 pod 비우기(drain) 및 제거(delete) -> drain 명령어 적용시 cordon 명령어 함께 실행됨
+kubectl drain <NODE_NAME> --ignore-daemonsets -–force
+--ignore-daemonsets   DaemonSet-managed pod들은 ignore.
+--force=false         RC, RS, Job, DaemonSet 또는 StatefulSet 에서 관리하지 않는 Pod 까지 제거.
+
+worker node에는 application pod만 실행되는게 아니고 CNI(Container Network Interface), kubeproxy 이러한 pod들도 daemonset type로 동작
+daemonset type pod 들은 drain 명령어로 삭제되지 않음 -> --ignore-daemonsets
+컨트롤러 제어없이 단독으로 실행되는 pod를 삭제시 -> --force 명령어 사용
+
+[user@console ~]$ kubectl drain k8s-worker2
+node/k8s-worker2 cordoned
+error: unable to drain node "k8s-worker2" due to error:cannot delete DaemonSet-managed Pods (use --ignore-daemonsets to ignore): kube-system/kube-flannel-ds-dvg5d, kube-system/kube-proxy-vd6zl, continuing command...
+There are pending nodes to be drained:
+ k8s-worker2
+cannot delete DaemonSet-managed Pods (use --ignore-daemonsets to ignore): kube-system/kube-flannel-ds-dvg5d, kube-system/kube-proxy-vd6zl
+
+[user@console ~]$ kubectl drain k8s-worker2 --ignore-daemonsets --force
+node/k8s-worker2 already cordoned
+WARNING: ignoring DaemonSet-managed Pods: kube-system/kube-flannel-ds-dvg5d, kube-system/kube-proxy-vd6zl
+evicting pod default/deploy-nginx-7cdd684976-vnmlf
+evicting pod default/deploy-nginx-7cdd684976-25q6z
+pod/deploy-nginx-7cdd684976-vnmlf evicted
+pod/deploy-nginx-7cdd684976-25q6z evicted
+node/k8s-worker2 drained
+
+
+◾작업클러스터: k8s
+k8s-worker2 노드를스케줄링불가능하게설정하고, 해당노드에서실행중인모든Pod을다른node로reschedule 하세요.
+
+[user@console ~]$ kubectl get nodes
+NAME          STATUS                     ROLES                  AGE    VERSION
+k8s-master    Ready                      control-plane,master   233d   v1.22.4
+k8s-worker1   Ready                      <none>                 233d   v1.22.4
+k8s-worker2   Ready,SchedulingDisabled   <none>                 233d   v1.22.4
+[user@console ~]$ kubectl uncordon k8s-worker2
+node/k8s-worker2 uncordoned
+[user@console ~]$ kubectl get nodes
+NAME          STATUS   ROLES                  AGE    VERSION
+k8s-master    Ready    control-plane,master   233d   v1.22.4
+k8s-worker1   Ready    <none>                 233d   v1.22.4
+k8s-worker2   Ready    <none>                 233d   v1.22.4
+[user@console ~]$ kubectl scale deployment deploy-nginx --replicas=8 -> 실습으로 인해 이미 노드가 비어있음 빈 노드에 replica 8개로 증가시켜 pod 수 증가
+deployment.apps/deploy-nginx scaled
+[user@console ~]$ kubectl drain k8s-worker2 --ignore-daemonsets --force -> worker2 에 있던 pod 들 모두 worker1 
+node/k8s-worker2 cordoned
+WARNING: ignoring DaemonSet-managed Pods: kube-system/kube-flannel-ds-dvg5d, kube-system/kube-proxy-vd6zl
+evicting pod default/deploy-nginx-7cdd684976-wvl74
+evicting pod default/deploy-nginx-7cdd684976-md82g
+evicting pod default/deploy-nginx-7cdd684976-w7cmn
+evicting pod default/deploy-nginx-7cdd684976-kztw4
+pod/deploy-nginx-7cdd684976-wvl74 evicted
+pod/deploy-nginx-7cdd684976-w7cmn evicted
+pod/deploy-nginx-7cdd684976-md82g evicted
+pod/deploy-nginx-7cdd684976-kztw4 evicted
+node/k8s-worker2 drained
