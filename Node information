@@ -1,1 +1,92 @@
 Node 정보 보기
+
+
+
+
+[user@console ~]$ kubectl describe nodes hk8s-m | grep -i taint
+Taints:             node-role.kubernetes.io/master:NoSchedule
+[user@console ~]$ kubectl create deployment testdep --image=nginx --replicas=5 --dry-run=client -o yaml > testdep.yaml
+[user@console ~]$ vi testdep.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: testdep
+  name: testdep
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: testdep
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: testdep
+    spec:
+      tolerations:
+      - key: "node-role.kubernetes.io/master"
+        operator: "Equal"
+        effect: "NoSchedule"
+      containers:
+      - image: nginx
+        name: nginx
+        resources: {}
+status: {}
+
+[user@console ~]$ kubectl get pods -o wide
+NAME                       READY   STATUS             RESTARTS         AGE    IP               NODE      NOMINATED NODE   READINESS GATES
+busybox-sleep              1/1     Running            6 (9m5s ago)     199d   192.168.75.124   hk8s-w1   <none>           <none>
+campus-01                  1/1     Running            6 (9m5s ago)     199d   192.168.75.66    hk8s-w1   <none>           <none>
+cka-webserver              1/1     Running            6 (9m5s ago)     199d   192.168.75.127   hk8s-w1   <none>           <none>
+custom-app                 1/1     Running            6 (9m5s ago)     199d   192.168.75.65    hk8s-w1   <none>           <none>
+fast-01                    1/1     Running            6 (9m5s ago)     199d   192.168.75.68    hk8s-w1   <none>           <none>
+nginx-static-pod-hk8s-w1   1/1     Running            1 (9m5s ago)     11d    192.168.75.126   hk8s-w1   <none>           <none>
+testdep-6b5d4b5846-6c4w9   1/1     Running            0                78s    192.168.47.237   hk8s-m    <none>           <none>
+testdep-6b5d4b5846-gzk4w   1/1     Running            0                78s    192.168.47.236   hk8s-m    <none>           <none>
+testdep-6b5d4b5846-hq6jl   1/1     Running            0                78s    192.168.47.235   hk8s-m    <none>           <none>
+testdep-6b5d4b5846-ln2tl   1/1     Running            0                78s    192.168.75.69    hk8s-w1   <none>           <none>
+testdep-6b5d4b5846-nq6f8   1/1     Running            0                78s    192.168.75.74    hk8s-w1   <none>           <none>
+web                        0/1     CrashLoopBackOff   190 (107s ago)   199d   192.168.75.67    hk8s-w1   <none>           <none>
+-> 기존에는 worker 노드에만 pod가 생성되었는데 tolerations를 master 와 맞춰줌으로써 master 노드에도 pod 할당 가능
+
+[user@console ~]$ cat testdep.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: testdep
+  name: testdep
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: testdep
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: testdep
+    spec:
+      tolerations:
+      - key: "node-role.kubernetes.io/master"
+        operator: "Equal"
+        effect: "NoSchedule"
+      containers:
+      - image: nginx
+        name: nginx
+        resources: {}
+status: {}
+[user@console ~]$ kubectl describe nodes hk8s-m | grep -i taint
+Taints:             node-role.kubernetes.io/master:NoSchedule
+[user@console ~]$ kubectl describe nodes hk8s-w1 | grep -i taint
+Taints:             <none>
+-> pod 가 가지고 있는 tolerations 와 동일한 taint 가 있는 시스템에도 스케쥴링 되고 없는곳에도 스케쥴링 된다
+
+
+◾ 작업클러스터: hk8s
+Ready 상태(NoSchedule로taint된node는제외)인node를찾아그수를/var/CKA2022/notaint_ready_node에기록하세요..
