@@ -1,7 +1,12 @@
 Node 정보 보기
-
-
-
+node - taint / pod - toleration
+worker node 에 taint가 설정된 경우 동일 값의 toleration이 있는 pod만 배치된다
+toleration이 있는 pod는 동일한 taint가 있는 node를 포함하여 모든 node에 배치된다
+toleration - key, value, effect, operator
+effect 필드 종류
+NoSchedule : toleration이 맞지 않으면 배치 되지 않는다.
+PreferNoSchedule : toleration이 맞지 않으면 배치되지 않으나, 클러스터 리소스가 부족하면 할당된다.
+NoExecute : toleration이 맞으면 동작중인 pod를 종료
 
 [user@console ~]$ kubectl describe nodes hk8s-m | grep -i taint
 Taints:             node-role.kubernetes.io/master:NoSchedule
@@ -52,7 +57,7 @@ testdep-6b5d4b5846-nq6f8   1/1     Running            0                78s    19
 web                        0/1     CrashLoopBackOff   190 (107s ago)   199d   192.168.75.67    hk8s-w1   <none>           <none>
 -> 기존에는 worker 노드에만 pod가 생성되었는데 tolerations를 master 와 맞춰줌으로써 master 노드에도 pod 할당 가능
 
-[user@console ~]$ cat testdep.yaml
+[user@console ~]$ cat testdep.yaml -> 현재 여기서는 value 값이 들어가있지 않음
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -85,8 +90,28 @@ status: {}
 Taints:             node-role.kubernetes.io/master:NoSchedule
 [user@console ~]$ kubectl describe nodes hk8s-w1 | grep -i taint
 Taints:             <none>
--> pod 가 가지고 있는 tolerations 와 동일한 taint 가 있는 시스템에도 스케쥴링 되고 없는곳에도 스케쥴링 된다
+-> pod 가 가지고 있는 tolerations 와 동일한 taint 가 있는 시스템에도 스케쥴링 되고 없는곳에도 스케쥴링 된다.
 
 
 ◾ 작업클러스터: hk8s
 Ready 상태(NoSchedule로taint된node는제외)인node를찾아그수를/var/CKA2022/notaint_ready_node에기록하세요..
+ready : 3
+noschedule : 1
+3 - 1 == 2
+
+[user@console ~]$ kubectl get nodes
+NAME      STATUS   ROLES                  AGE    VERSION
+hk8s-m    Ready    control-plane,master   236d   v1.22.4
+hk8s-w1   Ready    <none>                 236d   v1.22.4
+hk8s-w2   Ready    <none>                 227d   v1.22.4
+[user@console ~]$ kubectl describe nodes hk8s-m | grep -i -e taint -e noschedule -> -i : 대, 소문자 구분 X / -e : 여러개의 키워드 검색
+Taints:             node-role.kubernetes.io/master:NoSchedule
+[user@console ~]$ kubectl describe nodes hk8s-w1 | grep -i -e taint -e noschedule
+Taints:             <none>
+[user@console ~]$ kubectl describe nodes hk8s-w2 | grep -i -e taint -e noschedule
+Taints:             <none>
+[user@console ~]$ echo "2" > /var/CKA2022/notaint_ready_node
+[user@console ~]$ cat /var/CKA2022/notaint_ready_node
+2
+==> taint, tolerations 를 적용하는 문제는 보통 나오지 않지만 이런식으로 
+검색해서 noschedule 이 들어간 키워드를 제외한 node 수를 출력하는 문제들이 나옴
