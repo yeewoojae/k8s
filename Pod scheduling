@@ -1,0 +1,127 @@
+Pod Scheduling
+
+Worker node에 할당된 label을 이용해 node를 선택
+node label 설정
+kubectl label nodes <노드 이름> <레이블 키>=<레이블 값>
+kubectl label nodes node1.example.com gpu=true
+kubectl get nodes -L gpu
+
+[user@console ~]$ kubectl get nodes
+NAME          STATUS   ROLES                  AGE    VERSION
+k8s-master    Ready    control-plane,master   237d   v1.22.4
+k8s-worker1   Ready    <none>                 237d   v1.22.4
+k8s-worker2   Ready    <none>                 237d   v1.22.4
+[user@console ~]$ kubectl get nodes -L gpu
+NAME          STATUS   ROLES                  AGE    VERSION   GPU
+k8s-master    Ready    control-plane,master   237d   v1.22.4
+k8s-worker1   Ready    <none>                 237d   v1.22.4
+k8s-worker2   Ready    <none>                 237d   v1.22.4
+[user@console ~]$ kubectl get nodes --show-labels
+NAME          STATUS   ROLES                  AGE    VERSION   LABELS
+k8s-master    Ready    control-plane,master   237d   v1.22.4   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=k8s-master,kubernetes.io/os=linux,node-role.kubernetes.io/control-plane=,node-role.kubernetes.io/master=,node.kubernetes.io/exclude-from-external-load-balancers=
+k8s-worker1   Ready    <none>                 237d   v1.22.4   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,disktype=ssd,kubernetes.io/arch=amd64,kubernetes.io/hostname=k8s-worker1,kubernetes.io/os=linux
+k8s-worker2   Ready    <none>                 237d   v1.22.4   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,disktype=std,kubernetes.io/arch=amd64,kubernetes.io/hostname=k8s-worker2,kubernetes.io/os=linux
+
+[user@console ~]$ kubectl label nodes k8s-worker2 gpu=true
+node/k8s-worker2 labeled
+[user@console ~]$ kubectl get nodes --show-labels
+NAME          STATUS   ROLES                  AGE    VERSION   LABELS
+k8s-master    Ready    control-plane,master   237d   v1.22.4   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,kubernetes.io/arch=amd64,kubernetes.io/hostname=k8s-master,kubernetes.io/os=linux,node-role.kubernetes.io/control-plane=,node-role.kubernetes.io/master=,node.kubernetes.io/exclude-from-external-load-balancers=
+k8s-worker1   Ready    <none>                 237d   v1.22.4   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,disktype=ssd,kubernetes.io/arch=amd64,kubernetes.io/hostname=k8s-worker1,kubernetes.io/os=linux
+k8s-worker2   Ready    <none>                 237d   v1.22.4   beta.kubernetes.io/arch=amd64,beta.kubernetes.io/os=linux,disktype=std,gpu=true,kubernetes.io/arch=amd64,kubernetes.io/hostname=k8s-worker2,kubernetes.io/os=linux
+[user@console ~]$ kubectl get nodes -L gpu
+NAME          STATUS   ROLES                  AGE    VERSION   GPU
+k8s-master    Ready    control-plane,master   237d   v1.22.4
+k8s-worker1   Ready    <none>                 237d   v1.22.4
+k8s-worker2   Ready    <none>                 237d   v1.22.4   true
+
+[user@console ~]$ kubectl label nodes k8s-worker1 gpu=true
+node/k8s-worker1 labeled
+[user@console ~]$ kubectl get nodes -L gpu
+NAME          STATUS   ROLES                  AGE    VERSION   GPU
+k8s-master    Ready    control-plane,master   237d   v1.22.4
+k8s-worker1   Ready    <none>                 237d   v1.22.4   true
+k8s-worker2   Ready    <none>                 237d   v1.22.4   true
+[user@console ~]$ kubectl label nodes k8s-worker1 gpu=false
+error: 'gpu' already has a value (true), and --overwrite is false     -> treu 값을 설정해두고 false로 바꾸려면 --overwrite 옵션 필요
+[user@console ~]$ kubectl label nodes k8s-worker1 gpu=false --overwrite
+node/k8s-worker1 labeled
+[user@console ~]$ kubectl get nodes -L gpu
+NAME          STATUS   ROLES                  AGE    VERSION   GPU
+k8s-master    Ready    control-plane,master   237d   v1.22.4
+k8s-worker1   Ready    <none>                 237d   v1.22.4   false
+k8s-worker2   Ready    <none>                 237d   v1.22.4   true
+[user@console ~]$ kubectl label nodes k8s-worker1 gpu-      -> label을 삭제하려면 키 뒤에 - 붙여주면됨
+node/k8s-worker1 unlabeled
+[user@console ~]$ kubectl get nodes -L gpu
+NAME          STATUS   ROLES                  AGE    VERSION   GPU
+k8s-master    Ready    control-plane,master   237d   v1.22.4
+k8s-worker1   Ready    <none>                 237d   v1.22.4
+k8s-worker2   Ready    <none>                 237d   v1.22.4   true
+
+
+[user@console ~]$ vi /data/cka/pod-tensorflow.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: tensorflow-gpu
+spec:
+  nodeSelector:
+    gpu: "true"
+  containers:
+  - name: tensorflow
+    image: tensorflow/tensorflow:nightly-jupyter
+    ports:
+    - containerPort: 8888
+      protocol: TCP
+[user@console ~]$ kubectl apply -f /data/cka/pod-tensorflow.yaml
+pod/tensorflow-gpu created
+[user@console ~]$ kubectl get pods -o wide
+NAME                        READY   STATUS              RESTARTS      AGE    IP            NODE          NOMINATED NODE   READINESS GATES
+eshop-cart-app              1/1     Running             5 (35m ago)   179d   10.244.1.21   k8s-worker1   <none>           <none>
+front-end-8dc556958-fvlpx   1/1     Running             1 (35m ago)   199d   10.244.2.58   k8s-worker2   <none>           <none>
+front-end-8dc556958-vcr4s   1/1     Running             1 (35m ago)   199d   10.244.2.50   k8s-worker2   <none>           <none>
+nginx-79488c9578-qwnfk      1/1     Running             3 (35m ago)   177d   10.244.1.20   k8s-worker1   <none>           <none>
+nginx-79488c9578-xpsvp      1/1     Running             1 (35m ago)   177d   10.244.2.56   k8s-worker2   <none>           <none>
+tensorflow-gpu              0/1     ContainerCreating   0             27s    <none>        k8s-worker2   <none>           <none>
+
+
+◾작업클러스터: k8s
+다음의조건으로pod를생성하세요.
+Name: eshop-store
+Image: nginx
+Node selector: disktype=ssd
+
+[user@console ~]$ kubectl get nodes -L disktype
+NAME          STATUS   ROLES                  AGE    VERSION   DISKTYPE
+k8s-master    Ready    control-plane,master   237d   v1.22.4
+k8s-worker1   Ready    <none>                 237d   v1.22.4   ssd
+k8s-worker2   Ready    <none>                 237d   v1.22.4   std
+-> 이미 k8s-worker1 node에 ssd label이 생성되어 있음
+
+[user@console ~]$ kubectl run eshop-store --image=nginx --dry-run=client -o yaml > eshop.yaml
+[user@console ~]$ vi eshop.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: eshop-store
+  name: eshop-store
+spec:
+  nodeSelector:
+    disktype: "ssd"
+  containers:
+  - image: nginx
+    name: eshop-store
+    resources: {}
+[user@console ~]$ kubectl apply -f eshop.yaml
+pod/eshop-store created
+[user@console ~]$ kubectl get pods -o wide
+NAME                        READY   STATUS              RESTARTS      AGE    IP            NODE          NOMINATED NODE   READINESS GATES
+eshop-cart-app              1/1     Running             5 (74m ago)   179d   10.244.1.21   k8s-worker1   <none>           <none>
+eshop-store                 0/1     ContainerCreating   0             16s    <none>        k8s-worker1   <none>           <none>
+front-end-8dc556958-fvlpx   1/1     Running             1 (74m ago)   199d   10.244.2.58   k8s-worker2   <none>           <none>
+front-end-8dc556958-vcr4s   1/1     Running             1 (74m ago)   199d   10.244.2.50   k8s-worker2   <none>           <none>
+nginx-79488c9578-qwnfk      1/1     Running             3 (74m ago)   177d   10.244.1.20   k8s-worker1   <none>           <none>
+nginx-79488c9578-xpsvp      1/1     Running             1 (74m ago)   177d   10.244.2.56   k8s-worker2   <none>           <none>
+tensorflow-gpu              1/1     Running             0             40m    10.244.2.59   k8s-worker2   <none>           <none>
