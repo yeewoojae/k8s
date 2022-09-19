@@ -1,0 +1,14 @@
+Configmap
+컨테이너 구성 정보를 한곳에 모아서 관리
+kubectl create configmap NAME [--from-file=source] [--from-literal=key1=value1]
+kubectl create configmap CONFIG_NAME --from-literal=id=b2021002 --from-literal=class=bigdata
+kubectl create configmap CONFIG_NAME --from-file=text.file
+kubectl create configmap CONFIG_NAME --from-file=mydata=text.file
+kubectl create configmap CONFIG_NAME --from-file=/configmap.dir/
+
+◾작업클러스터: k8s
+다음의변수를configMapeshop으로등록하세요.
+• DBNAME: mysql
+• USER: admin
+등록한eshopconfigMap의DBNAME을eshop-configmap라는이름의nginx 컨테이너에DB라는환경변수로할당하세요.
+
