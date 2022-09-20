@@ -7,8 +7,90 @@ kubectl create configmap CONFIG_NAME --from-file=mydata=text.file
 kubectl create configmap CONFIG_NAME --from-file=/configmap.dir/
 
 ◾작업클러스터: k8s
-다음의변수를configMapeshop으로등록하세요.
+1. 다음의변수를configMap eshop으로등록하세요.
 • DBNAME: mysql
 • USER: admin
-등록한eshopconfigMap의DBNAME을eshop-configmap라는이름의nginx 컨테이너에DB라는환경변수로할당하세요.
+2. 등록한eshopconfigMap의DBNAME을eshop-configmap라는이름의nginx 컨테이너에DB라는환경변수로할당하세요.
 
+[user@console ~]$ kubectl create configmap eshop --from-literal=DBNAME=mysql --from-literal=USER=admin
+configmap/eshop created
+[user@console ~]$ kubectl get con
+configmaps                controllerrevisions.apps
+[user@console ~]$ kubectl get configmaps
+NAME               DATA   AGE
+eshop              2      13s
+kube-root-ca.crt   1      238d
+[user@console ~]$ kubectl describe con
+configmaps                controllerrevisions.apps
+[user@console ~]$ kubectl describe configmaps eshop
+Name:         eshop
+Namespace:    default
+Labels:       <none>
+Annotations:  <none>
+
+Data
+====
+DBNAME:
+----
+mysql
+USER:
+----
+admin
+
+BinaryData
+====
+
+Events:  <none>
+
+[user@console ~]$ kubectl run eshop-configmap --image=nginx --dry-run=client -o yaml > eshop.yaml   -> run 명령어는 단일 pod 만들때 사용
+[user@console ~]$ vi eshop.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: eshop-configmap
+  name: eshop-configmap
+spec:
+  containers:
+  - image: nginx
+    name: eshop-configmap
+    env:
+        - name: DB
+          valueFrom:
+            configMapKeyRef:
+              name: eshop
+              key: DBNAME
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+[user@console ~]$ kubectl apply -f eshop.yaml
+pod/eshop-configmap created
+[user@console ~]$ kubectl get pod eshop-configmap
+NAME              READY   STATUS    RESTARTS   AGE
+eshop-configmap   1/1     Running   0          16s
+
+[user@console ~]$ kubectl exec -it eshop-configmap -- /bin/bash
+root@eshop-configmap:/# env
+KUBERNETES_SERVICE_PORT_HTTPS=443
+KUBERNETES_SERVICE_PORT=443
+HOSTNAME=eshop-configmap
+PWD=/
+PKG_RELEASE=1~bullseye
+HOME=/root
+KUBERNETES_PORT_443_TCP=tcp://10.96.0.1:443
+DB=mysql
+NJS_VERSION=0.7.6
+TERM=xterm
+SHLVL=1
+KUBERNETES_PORT_443_TCP_PROTO=tcp
+KUBERNETES_PORT_443_TCP_ADDR=10.96.0.1
+KUBERNETES_SERVICE_HOST=10.96.0.1
+KUBERNETES_PORT=tcp://10.96.0.1:443
+KUBERNETES_PORT_443_TCP_PORT=443
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+NGINX_VERSION=1.23.1
+_=/usr/bin/env
+root@eshop-configmap:/# exit
+exit
