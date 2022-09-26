@@ -1,0 +1,103 @@
+Service
+• Pod network
+CNI(Container Network Interface plugin)에서 관리하는 포드 간 통신에 사용되는 클러스터 전체 네트워크
+• Service Network(service란 부하분산(LB)을 요청하는 것 ->  worker node의 pod에서 부하분산이 적용되어 실행이 되야함)
+Service discovery를 위해 kube-proxy가 관리하는 Cluster-wide 범위의 Virtual IP(Cluster IP)
+• Kubernetes Network Proxy
+• 각각의Node에서실행되고, KubernetesServiceAPI에정의된서비스를각노드에서반영
+• kube-proxy 역할
+• Iptables rule을설정하고외부네트워크와Pod를연결시킨다.
+=> Master Node - etcd(10.96.100.100(Cluster IP) -> LB 10.244.1.1, 10.244.2.2, 10.244.2.1)
+=> Master Node -> etcd -> API(service) 에서 rule 설정 요청 -> kubelet(root 권한이 없어서 kubeproxy로 넘김) 
+-> kubeproxy -> iptable rules(리눅스에서 방화벽 역할을 하면서 LB 역할도 함)
+
+[user@console ~]$ vi deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      name: nginx-pod
+      labels:
+        app: web
+    spec:
+      containers:
+      - name: nginx-container
+        image: nginx:1.14
+
+[user@console ~]$ vi services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-svc
+spec:
+  clusterIP: 10.0.171.239
+  selector:
+    app: web
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+      
+[user@console ~]$ kubectl get deployments.apps -o wide
+NAME        READY   UP-TO-DATE   AVAILABLE   AGE    CONTAINERS        IMAGES       SELECTOR
+front-end   2/2     2            2           206d   http              nginx        run=nginx
+nginx       2/2     2            2           184d   nginx-container   nginx:1.14   app=webui
+web         3/3     3            3           16m    nginx-container   nginx:1.14   app=web
+
+[user@console ~]$ kubectl get pods | grep -i web
+web-74dbbbc58-8x8dp         1/1     Running   0             17m
+web-74dbbbc58-bhlvr         1/1     Running   0             17m
+web-74dbbbc58-nx4wm         1/1     Running   0             17m
+
+[user@console ~]$ kubectl get pods -o wide | grep -i web -> endpoint 확인
+web-74dbbbc58-8x8dp         1/1     Running   0             17m     10.244.2.80   k8s-worker2   <none>           <none>
+web-74dbbbc58-bhlvr         1/1     Running   0             17m     10.244.1.36   k8s-worker1   <none>           <none>
+web-74dbbbc58-nx4wm         1/1     Running   0             17m     10.244.1.35   k8s-worker1   <none>           <none>
+
+[user@console ~]$ kubectl get service
+NAME         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE
+kubernetes   ClusterIP   10.96.0.1       <none>        443/TCP   244d
+web-svc      ClusterIP   10.96.100.100   <none>        80/TCP    14m
+[user@console ~]$ ssh k8s-worker1
+Last login: Mon Sep 19 10:38:29 2022 from console
+[user@k8s-worker1 ~]$ curl 10.96.100.100
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+[user@k8s-worker1 ~]$ exit
+logout
+Connection to k8s-worker1 closed.
+-> 세개중에 어느 한곳으로 지정해서 가는게 아니고 LB로 인해 3개중에 1개로 동일한 횟수로 접근하게 함
+
+ClusterIP(default) : Pod 그룹(동일한서비스를지원하는Pod 모음)의 단일 진입점(Virtual IP:LB) 생성
+NodePort: ClusterIP가생성된후모든Worker Node 에외부에서접속가능한포트가예약
+LoadBalancer: 클라우드 인프라 스트럭처(AWS, Azure, GCP)에 적용, LoadBalancer를 자동으로 프로비전 하는 기능지원
