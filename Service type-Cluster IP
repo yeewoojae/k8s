@@ -9,3 +9,337 @@ LoadBalancer를자동으로프로비전하는기능지원
 • 클러스터 내부에서만 사용가능
 • Service type 생략시 default로 설정
 • 10.96.0.0/12 범위에서 할당됨 -> IP 미설정시 저 범위안에서 랜덤으로 지정됨
+
+• LAB: 동일한서비스를제공하는Pod 그룹에ClusterIP생성하기
+deployment name: web , image:nginx, port:80, replicas:2
+service name: web, type: clusterIP, port: 80
+$ kubectlcreate deployment web --image=nginx --port=80 --replicas=2
+$ kubectlexpose deployment webserver type=ClusterIPport=80
+
+[user@console ~]$ kubectl create deployment web --image=nginx --port=80 --replicas=2 --dry-run=client -o yaml -> dry-run으로 확인했을때
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: web
+  name: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: web
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+        ports:
+        - containerPort: 80
+        resources: {}
+status: {}
+[user@console ~]$ kubectl get pod -o wide | grep -i web
+web-5b87848979-229zv        1/1     Running   0             19m     10.244.2.92   k8s-worker2   <none>           <none>
+web-5b87848979-85lgn        1/1     Running   0             19m     10.244.1.45   k8s-worker1   <none>           <none>
+
+[user@console ~]$ kubectl expose deployment web --type=ClusterIP --port=80 --target-port=80 --dry-run=client -o yaml -> dry-run으로 확인했을때
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  labels:
+    app: web
+  name: web
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: web
+  type: ClusterIP
+status:
+  loadBalancer: {}
+[user@console ~]$ kubectl get service web -o wide
+NAME   TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE   SELECTOR
+web    ClusterIP   10.107.186.59   <none>        80/TCP    23s   app=web
+[user@console ~]$ ssh k8s-worker2
+Last login: Mon Sep 19 10:38:34 2022 from console
+[user@k8s-worker2 ~]$ curl 10.107.186.59
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+
+
+◾작업클러스터: k8s
+'devops'namespace에서운영되고있는eshop-order deployment의Service를만드세요. -> 먼저 devops namespace에서 운영되고 있는지 부터 확인
+• ServiceName: eshop-order-svc
+• Type: ClusterIP
+• Port: 80
+
+[user@console ~]$ kubectl get deployments.apps -n devops
+NAME          READY   UP-TO-DATE   AVAILABLE   AGE
+eshop-order   2/2     2            2           207d
+[user@console ~]$ kubectl get pod -n devops -o wide
+NAME                           READY   STATUS    RESTARTS       AGE    IP            NODE          NOMINATED NODE   READINESS GATES
+eshop-order-5f95d86b84-l9mm6   1/1     Running   4 (104m ago)   207d   10.244.2.91   k8s-worker2   <none>           <none>
+eshop-order-5f95d86b84-rpbz4   1/1     Running   4 (104m ago)   207d   10.244.2.83   k8s-worker2   <none>           <none>
+
+[user@console ~]$ kubectl describe pod --namespace devops eshop-order-5f95d86b84-l9mm6
+Name:         eshop-order-5f95d86b84-l9mm6
+Namespace:    devops
+Priority:     0
+Node:         k8s-worker2/10.0.2.12
+Start Time:   Thu, 03 Mar 2022 12:33:44 +0900
+Labels:       name=order                          -> label 확인
+              pod-template-hash=5f95d86b84
+Annotations:  <none>
+Status:       Running
+IP:           10.244.2.91
+IPs:
+  IP:           10.244.2.91
+Controlled By:  ReplicaSet/eshop-order-5f95d86b84
+Containers:
+  nginx-container:
+    Container ID:   docker://00665945a3fa619cfd4ee613c32093eff24952e9ef3440756a4a8ca08d20e5fe
+    Image:          nginx:1.14
+    Image ID:       docker-pullable://nginx@sha256:f7988fb6c02e0ce69257d9bd9cf37ae20a60f1df7563c3a2a6abe24160306b8d
+    Port:           <none>                  -> port가 none으로 표시되어있으니 default 값인 80
+    Host Port:      <none>
+    State:          Running
+      Started:      Tue, 27 Sep 2022 08:09:54 +0900
+    Last State:     Terminated
+      Reason:       Error
+      Exit Code:    255
+      Started:      Mon, 26 Sep 2022 09:51:20 +0900
+      Finished:     Tue, 27 Sep 2022 08:09:18 +0900
+    Ready:          True
+    Restart Count:  4
+    Environment:    <none>
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-9pb8c (ro)
+Conditions:
+  Type              Status
+  Initialized       True
+  Ready             True
+  ContainersReady   True
+  PodScheduled      True
+Volumes:
+  kube-api-access-9pb8c:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    ConfigMapOptional:       <nil>
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:                      <none>
+[user@console ~]$ kubectl get deployments.apps -n devops -o wide
+NAME          READY   UP-TO-DATE   AVAILABLE   AGE    CONTAINERS        IMAGES       SELECTOR
+eshop-order   2/2     2            2           207d   nginx-container   nginx:1.14   name=order
+[user@console ~]$ kubectl expose deployment -n devops eshop-order --type=ClusterIP --port=80 --target-port=80 --name=eshop-order-svc  --dry-run=client -o yaml
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  name: eshop-order-svc
+  namespace: devops
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    name: order
+  type: ClusterIP
+status:
+  loadBalancer: {}
+[user@console ~]$ kubectl describe service -n devops eshop-order-svc
+Name:              eshop-order-svc
+Namespace:         devops
+Labels:            <none>
+Annotations:       <none>
+Selector:          name=order
+Type:              ClusterIP
+IP Family Policy:  SingleStack
+IP Families:       IPv4
+IP:                10.110.173.66
+IPs:               10.110.173.66
+Port:              <unset>  80/TCP
+TargetPort:        80/TCP
+Endpoints:         10.244.2.83:80,10.244.2.91:80
+Session Affinity:  None
+Events:            <none>
+[user@console ~]$ ssh k8s-worker1
+Last login: Tue Sep 27 09:42:45 2022 from console
+[user@k8s-worker1 ~]$ curl 10.110.173.66
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+
+
+◾작업클러스터: k8s
+• 미리배포한'front-end'에기존의nginx 컨테이너의포트'80/tcp'를expose하는'http'라는이름을추가합니다.
+• 컨테이너포트http를expose하는'front-end-svc'라는새service를만듭니다.
+• 또한준비된node의'NodePort'를통해개별Pods를expose되도록Service를구성합니다.
+
+[user@console ~]$ kubectl get deployments.apps front-end -o wide
+NAME        READY   UP-TO-DATE   AVAILABLE   AGE    CONTAINERS   IMAGES   SELECTOR
+front-end   2/2     2            2           207d   http         nginx    run=nginx
+[user@console ~]$ kubectl get deployments.apps front-end -o yaml > front-end.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: front-end
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      run: nginx
+  template:
+    metadata:
+      labels:
+        run: nginx
+    spec:
+      containers:
+      - image: nginx
+        name: http
+        ports:
+        - containerPort: 80
+          name: http
+
+---             -> 한 yaml 파일에서 두개를 실행할 때
+apiVersion: v1
+kind: Service
+metadata:
+  name: front-end-svc
+spec:
+  selector:
+    run: nginx
+  ports:
+  - name: name-of-service-port
+    protocol: TCP
+    port: 80
+    targetPort: http
+    
+[user@console ~]$ kubectl get pod | grep -i front
+front-end-9c89c87dc-g6h2t   1/1     Running   0              60s
+front-end-9c89c87dc-swg25   1/1     Running   0              60s
+[user@console ~]$ kubectl get service | grep front
+front-end-svc   ClusterIP   10.102.167.157   <none>        80/TCP    84s
+[user@console ~]$ kubectl edit service front-end-svc
+# Please edit the object below. Lines beginning with a '#' will be ignored,
+# and an empty file will abort the edit. If an error occurs while saving this file will be
+# reopened with the relevant failures.
+#
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{},"name":"front-end-svc","namespace":"default"},"spec":{"ports":[{"name":"name-of-service-port","port":80,"protocol":"TCP","targetPort":"http"}],"selector":{"run":"nginx"}}}
+  creationTimestamp: "2022-09-27T01:35:29Z"
+  name: front-end-svc
+  namespace: default
+  resourceVersion: "864658"
+  uid: 3e99d822-7b97-4347-9e78-fbdd8b1b3a81
+spec:
+  clusterIP: 10.102.167.157
+  clusterIPs:
+  - 10.102.167.157
+  externalTrafficPolicy: Cluster
+  internalTrafficPolicy: Cluster
+  ipFamilies:
+  - IPv4
+  ipFamilyPolicy: SingleStack
+  ports:
+  - name: name-of-service-port
+    nodePort: 32056
+    port: 80
+    protocol: TCP
+    targetPort: http
+  selector:
+    run: nginx
+  sessionAffinity: None
+  type: NodePort        => ClusterIP -> NodePort 로 변경
+status:
+  loadBalancer: {}
+[user@console ~]$ kubectl edit service front-end-svc
+service/front-end-svc edited
+[user@console ~]$ kubectl get service | grep front
+front-end-svc   NodePort    10.102.167.157   <none>        80:32056/TCP   6m45s       
+-> NodePort가 열리면서 각각의 web server 에 32056 port가 열리고 외부에서 저 포트를 통해 접근 가능
+[user@console ~]$ curl k8s-worker1:32056
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+
