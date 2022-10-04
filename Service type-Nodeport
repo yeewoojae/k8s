@@ -1,0 +1,6 @@
+Service Type - Nodeport(Virtual IP + 외부접속 가능 포트)
+• 모든노드를대상으로외부접속가능한포트를예약
+• Default NodePort범위: 30000-32767
+• ClusterIP를생성후NodePort를예약
+-> Nodeport 를 만들면 자동으로 Cluster IP가 만들어짐
+-> iptable, rule(port 번호 생성) / kubeproxy -> iptable 생성
