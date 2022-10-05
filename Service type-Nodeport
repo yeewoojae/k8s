@@ -4,3 +4,107 @@ Service Type - Nodeport(Virtual IP + 외부접속 가능 포트)
 • ClusterIP를생성후NodePort를예약
 -> Nodeport 를 만들면 자동으로 Cluster IP가 만들어짐
 -> iptable, rule(port 번호 생성) / kubeproxy -> iptable 생성
+
+◾작업클러스터: k8s
+• 'front-end' deployment의nginx 컨테이너를expose하는'front-end-nodesvc'라는새service를만듭니다.
+• Front-end로동작중인Pod에는node의30200 포트로접속되어야합니다.
+• 구성테스트curlk8s-worker1:30200 연결시nginx 홈페이지가표시되어야합니다.
+
+[user@console ~]$ kubectl describe deployments.apps front-end | grep -i -e port -e labels
+Labels:                 <none>
+  Labels:  run=nginx
+    Port:         80/TCP
+    Host Port:    0/TCP
+[user@console ~]$ kubectl expose deployment front-end --name front-end-nodesvc --port=80 --target-port=80 --type NodePort --dry-run=client -o yaml
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  name: front-end-nodesvc
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+  selector:
+    run: nginx
+  type: NodePort
+status:
+  loadBalancer: {}
+[user@console ~]$ cat front-end-nodesvc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  creationTimestamp: null
+  name: front-end-nodesvc
+spec:
+  ports:
+  - port: 80
+    protocol: TCP
+    targetPort: 80
+    nodePort: 30200   -> port 번호 고정
+  - port: 443     -> port 다중구성시 
+    protocol: TCP
+    targetPort: 443
+    nodePort: 30300   
+  selector:
+    run: nginx      -> label 확인
+  type: NodePort
+status:
+  loadBalancer: {}
+  
+[user@console ~]$ ssh k8s-worker1     -> Cluster IP 접속 방법
+Last login: Tue Sep 27 10:08:55 2022 from console
+[user@k8s-worker1 ~]$ curl 10.111.149.235
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+[user@k8s-worker1 ~]$ exit
+logout
+
+[user@console ~]$ curl k8s-worker1:30200      -> NodePort 접속 방법
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+
+
