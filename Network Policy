@@ -1,1 +1,11 @@
+Network Policy
+• Kubernetes가지원하는Pod 통신접근제한.
+• 일종의방화벽으로Pod로트래픽이들어오고(Inbound), 나가는(Outbound)것을설정하는정책
+• Ingress트래픽: Inbound 정책. 들어오는트래픽을허용할것인지를정의
+• Egress트래픽: Outbound 정책. 트래픽이나갈수있는허용범위정의
 
+• 트래픽컨트롤정의(Egress는 ipBlock 과 Protocol & Port 만 사용)
+• ipBlock: CIDR IP 대역으로, 특정IP 대역에서만트래픽이들어오도록지정할수있다.
+• podSelector: label을이용하여, 특정label을가지고있는Pod들에서들어오는트래픽만받을수있다. 예를들어DB Pod의경우에는API server로부터들어오는트래픽만받는것과같은정책정의가가능하다.
+• namespaceSelector: 특정namespace로부터들어오는트래픽만을받는기능이다. 운영로깅서버의경우에는운영환경namespace에서만들어오는트래픽을받거나, 특정서비스컴포넌트의namespace에서의트래픽만들어오게컨트롤이가능하다. 내부적으로새로운서비스컴포넌트를오픈했을때, 베타서비스를위해서특정서비스나팀에게만서비스를오픈하고자할때유용하게사용할수있다.
+• Protocol & Port : 특정Protocol 또는Port로설정된트래픽만허용되는포트를정의할수있다.
