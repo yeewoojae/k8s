@@ -1,4 +1,4 @@
-Network Policy
+Network Policy(CNI가 지원해야만 사용가능, flannel은 지원 X / calico는 지원 O)
 • Kubernetes가지원하는Pod 통신접근제한.
 • 일종의방화벽으로Pod로트래픽이들어오고(Inbound), 나가는(Outbound)것을설정하는정책
 • Ingress트래픽: Inbound 정책. 들어오는트래픽을허용할것인지를정의
@@ -9,3 +9,151 @@ Network Policy
 • podSelector: label을이용하여, 특정label을가지고있는Pod들에서들어오는트래픽만받을수있다. 예를들어DB Pod의경우에는API server로부터들어오는트래픽만받는것과같은정책정의가가능하다.
 • namespaceSelector: 특정namespace로부터들어오는트래픽만을받는기능이다. 운영로깅서버의경우에는운영환경namespace에서만들어오는트래픽을받거나, 특정서비스컴포넌트의namespace에서의트래픽만들어오게컨트롤이가능하다. 내부적으로새로운서비스컴포넌트를오픈했을때, 베타서비스를위해서특정서비스나팀에게만서비스를오픈하고자할때유용하게사용할수있다.
 • Protocol & Port : 특정Protocol 또는Port로설정된트래픽만허용되는포트를정의할수있다.
+
+• app: web 레이블을가진Pod에특정namespace의Pod들만접근허용
+[user@console ~]$ kubectl run webpod --image=nginx --port=80 --labels=app=web --dry-run=client -o yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    app: web
+  name: webpod
+spec:
+  containers:
+  - image: nginx
+    name: webpod
+    ports:
+    - containerPort: 80
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+[user@console ~]$ kubectl run webpod --image=nginx --port=80 --labels=app=web
+pod/webpod created
+[user@console ~]$ kubectl get pod -o wide webpod
+NAME     READY   STATUS    RESTARTS   AGE   IP               NODE      NOMINATED NODE   READINESS GATES
+webpod   1/1     Running   0          18s   192.168.75.105   hk8s-w1   <none>           <none>
+
+[user@console ~]$ kubectl create namespace dev
+namespace/dev created
+[user@console ~]$ kubectl create namespace prod
+namespace/prod created
+[user@console ~]$ kubectl label namespaces prod purpose=production
+namespace/prod labeled
+[user@console ~]$ kubectl label namespaces dev purpose=development
+namespace/dev labeled
+[user@console ~]$ kubectl get namespaces -L purpose   -> 이게 더 보기 편함
+NAME              STATUS   AGE    PURPOSE
+customera         Active   230d
+customerb         Active   230d
+default           Active   266d
+dev               Active   51s    development
+kube-node-lease   Active   266d
+kube-public       Active   266d
+kube-system       Active   266d
+prod              Active   47s    production
+[user@console ~]$ kubectl get namespaces --show-labels
+NAME              STATUS   AGE    LABELS
+customera         Active   230d   kubernetes.io/metadata.name=customera,partition=customera
+customerb         Active   230d   kubernetes.io/metadata.name=customerb,partition=customerb
+default           Active   266d   kubernetes.io/metadata.name=default
+dev               Active   81s    kubernetes.io/metadata.name=dev,purpose=development
+kube-node-lease   Active   266d   kubernetes.io/metadata.name=kube-node-lease
+kube-public       Active   266d   kubernetes.io/metadata.name=kube-public
+kube-system       Active   266d   kubernetes.io/metadata.name=kube-system
+prod              Active   77s    kubernetes.io/metadata.name=prod,purpose=production
+
+[user@console ~]$ vi web-allow-prod.yaml
+piVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: web-allow-prod
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: web
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              purpose: production
+      ports:
+        - protocol: TCP
+          port: 80
+
+[user@console ~]$ kubectl apply -f web-allow-prod.yaml
+networkpolicy.networking.k8s.io/web-allow-prod created
+[user@console ~]$ kubectl get networkpolicies.
+NAME             POD-SELECTOR   AGE
+web-allow-prod   app=web        62s
+[user@console ~]$ kubectl describe networkpolicies.
+Name:         web-allow-prod
+Namespace:    default
+Created on:   2022-10-18 16:34:17 +0900 KST
+Labels:       <none>
+Annotations:  <none>
+Spec:
+  PodSelector:     app=web
+  Allowing ingress traffic:
+    To Port: 80/TCP
+    From:
+      NamespaceSelector: purpose=production
+  Not affecting egress traffic
+  Policy Types: Ingress
+
+[user@console ~]$ kubectl run testpod -it --rm --image=centos:7 -n dev -- /bin/bash
+-> -it(terminal로 접속)/--rm(테스트후 삭제)
+
+[user@console ~]$ kubectl run testpod -it --rm --image=centos:7 -n dev -- /bin/bash
+If you don't see a command prompt, try pressing enter.
+[root@testpod /]# curl 192.168.75.105
+^C    -> Namespace 가 달라서 접속 불가
+[user@console ~]$ kubectl run testpod -it --rm --image=centos:7 -n prod -- /bin/bash
+If you don't see a command prompt, try pressing enter.
+[root@testpod /]# curl 192.168.75.105
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>     -> Namespace 가 동일하여 접속 가능
+
+[user@console ~]$ kubectl delete pod webpod
+pod "webpod" deleted
+[user@console ~]$ kubectl delete namespaces {dev,prod}
+namespace "dev" deleted
+namespace "prod" deleted
+^C
+[user@console ~]$ kubectl delete networkpolicies web-allow-prod
+networkpolicy.networking.k8s.io "web-allow-prod" deleted
+
+
+◾작업클러스터: hk8s
+• default namespace에다음과같은pod를생성하세요.
+• name: poc
+• image: nginx
+• port: 80
+• label: app=poc
+• "partition=customera"를사용하는namespace에서만poc의80포트로연결할수있도록
+default namespace에'allow-web-from-customera'라는 network Policy를설정하세요. 보안정책상다른namespace의접근은제한합니다.
