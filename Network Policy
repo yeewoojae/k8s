@@ -157,3 +157,75 @@ networkpolicy.networking.k8s.io "web-allow-prod" deleted
 • label: app=poc
 • "partition=customera"를사용하는namespace에서만poc의80포트로연결할수있도록
 default namespace에'allow-web-from-customera'라는 network Policy를설정하세요. 보안정책상다른namespace의접근은제한합니다.
+
+[user@console ~]$ kubectl config use-context hk8s
+Switched to context "hk8s".
+[user@console ~]$ kubectl run poc --image=nginx --port=80 --labels=app=poc
+pod/poc created
+[user@console ~]$ kubectl get pod poc -o wide
+NAME   READY   STATUS    RESTARTS   AGE   IP               NODE      NOMINATED NODE   READINESS GATES
+poc    1/1     Running   0          35s   192.168.75.125   hk8s-w1   <none>           <none>          -> IP를 알고 있어야함
+[user@console ~]$ kubectl get namespaces -L partition     -> namespace가 이미 만들어져 있는지 확인
+NAME              STATUS        AGE    PARTITION
+customera         Active        233d   customera    -> 이미 만들어져 있으므로 namespace 생성을 따로 안해도됨
+customerb         Active        233d   customerb
+default           Active        269d
+dev               Terminating   3d1h
+kube-node-lease   Active        269d
+kube-public       Active        269d
+kube-system       Active        269d
+prod              Terminating   3d1h
+
+[user@console ~]$ vi allow-web-from-customera.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-web-from-customera
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: poc
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              partition: customera
+      ports:
+        - protocol: TCP
+          port: 80
+[user@console ~]$ kubectl apply -f allow-web-from-customera.yaml
+networkpolicy.networking.k8s.io/allow-web-from-customera created
+[user@console ~]$ kubectl run test --image=centos:7 -it --rm -n customera -- /bin/bash
+If you don't see a command prompt, try pressing enter.
+[root@test /]# curl 192.168.75.125
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+[user@console ~]$ kubectl run test --image=centos:7 -it --rm -n customerb -- /bin/bash
+If you don't see a command prompt, try pressing enter.
+[root@test /]# curl 192.168.75.125
+^C
+
