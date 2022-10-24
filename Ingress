@@ -1,0 +1,132 @@
+Ingress
+• L7 스위치(ALB : Application Load Balancer)역할을논리적으로수행
+• 클러스터로 접근하는 URL 별로 다른 서비스에 트래픽을 분산
+• Kubernetes Ingress의기능
+• Service에외부URL을제공
+• 트래픽을로드밸런싱
+• SSL 인증서처리
+• Virtual hosting을지정
+
+Ingress controller / Ingress rule
+Ingress Controller로 Nodeport를 통해서 내용이 들어옴
+Ingress Controller 에서 Ingress Rule을 참고한 후 각 서비스에 맞는곳으로 트래픽을 분산
+
+◾작업클러스터: k8s    
+-> Ingress Controller를 구성하는 문제 X, Ingress Rule을 설정하여 테스트 했을때 해당 페이지로 가는지 확인하는 문제가 나옴
+1. ingress-nginx namespace에nginx이미지를app=nginx 레이블을가지고실행하는nginxpod를구성하세요.
+2. 현재appjs-servic와nginx 서비스는이미동작중입니다. 별도구성이필요없습니다.
+3. app-ingress.yaml파일을생성하고,다음조건의ingress 를구성하세요.
+•name: app-ingress
+•NODE_PORT:30080/접속했을때nginx 서비스로연결
+•NODE_PORT:30080/app 접속했을때appjs-service서비스로연결
+•Ingress 구성에다음의annotations을포함시키세요.
+annotations: kubernetes.io/ingress.class: nginx
+
+1.
+[user@console ~]$ kubectl run nginx --image=nginx --labels=app=nginx -n ingress-nginx --dry-run=client -o yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    app: nginx
+  name: nginx
+  namespace: ingress-nginx
+spec:
+  containers:
+  - image: nginx
+    name: nginx
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+[user@console ~]$ kubectl get pod -n ingress-nginx -L app
+NAME                                        READY   STATUS      RESTARTS        AGE    APP
+appjs-rc-qh7s5                              1/1     Running     8 (6m15s ago)   235d   appjs
+appjs-rc-xfq72                              1/1     Running     8 (6m15s ago)   259d   appjs
+appjs-rc-zl77b                              1/1     Running     8 (6m15s ago)   259d   appjs
+ingress-nginx-admission-create--1-n8btr     0/1     Completed   0               259d
+ingress-nginx-controller-778574f59b-2q48q   1/1     Running     8 (6m15s ago)   235d
+nginx                                       1/1     Running     0               85s    nginx
+
+2.
+[user@console ~]$ kubectl get service -n ingress-nginx
+NAME                                 TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
+appjs-service                        ClusterIP   10.101.79.81     <none>        80/TCP                       259d
+ingress-nginx-controller             NodePort    10.103.244.123   <none>        80:30080/TCP,443:30443/TCP   259d
+ingress-nginx-controller-admission   ClusterIP   10.104.19.80     <none>        443/TCP                      259d
+nginx                                ClusterIP   10.111.141.127   <none>        80/TCP                       259d
+
+3.
+[user@console ~]$ vi app-ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  namespace: ingress-nginx
+  name: app-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nginx
+            port:
+              number: 80
+      - path: /app
+        pathType: Prefix
+        backend:
+          service:
+            name: appjs-service
+            port:
+              number: 80
+[user@console ~]$ kubectl get ingress -n ingress-nginx
+NAME          CLASS    HOSTS   ADDRESS     PORTS   AGE
+app-ingress   <none>   *       10.0.2.12   80      14s
+[user@console ~]$ kubectl describe ingress -n ingress-nginx  app-ingress
+Name:             app-ingress
+Labels:           <none>
+Namespace:        ingress-nginx
+Address:          10.0.2.12
+Default backend:  default-http-backend:80 (<error: endpoints "default-http-backend" not found>)
+Rules:
+  Host        Path  Backends
+  ----        ----  --------
+  *
+              /      nginx:80 (10.244.1.79:80)
+              /app   appjs-service:80 (10.244.2.127:8080,10.244.2.129:8080,10.244.2.132:8080)
+Annotations:  kubernetes.io/ingress.class: nginx
+Events:
+  Type    Reason  Age                From                      Message
+  ----    ------  ----               ----                      -------
+  Normal  Sync    40s (x2 over 44s)  nginx-ingress-controller  Scheduled for sync
+[user@console ~]$ curl k8s-worker1:30080/
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+html { color-scheme: light dark; }
+body { width: 35em; margin: 0 auto;
+font-family: Tahoma, Verdana, Arial, sans-serif; }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+[user@console ~]$ curl k8s-worker1:30080/app
+Container Hostname: appjs-rc-xfq72
