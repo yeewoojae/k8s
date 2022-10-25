@@ -1,0 +1,131 @@
+Kube_DNS
+
+• 쿠버네티스 클러스터에서 사용하는 DNS
+• 클러스터 내의 모든 Service에는 DNS 네임이 할당된다
+svc-name.namespace.svc.cluster.local
+• 클러스터에서 동작되는 모든 Pod의 /etc/resolv.conf 에는 kube-dns가 namespace로 정의되어 있다.
+cat /etc/resolv.conf
+nameserver 10.32.0.10
+search <namespace>.svc.cluster.localsvc.cluster.localcluster.local
+• 특정 Pod에서 service name이나 pod name으로 Access 가능(FQDN)
+svc-name.namespace.svc.cluster.local
+pod-ip.namespace.pod.cluster.local
+
+• 간단한web deployment생성후service 구성.
+• 다른Pod에서name 조회할수있는지TEST
+
+[user@console ~]$ kubectl create deployment web --image=nginx --port=80 --replicas=2
+deployment.apps/web created
+[user@console ~]$ kubectl expose deployment web --port=80
+service/web exposed
+[user@console ~]$ kubectl get deployments.apps,svc
+NAME                        READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/front-end   2/2     2            2           28d
+deployment.apps/nginx       2/2     2            2           213d
+deployment.apps/web         2/2     2            2           2m18s
+
+NAME                        TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+service/front-end-nodesvc   NodePort    10.111.149.235   <none>        80:30200/TCP   27d
+service/front-end-svc       NodePort    10.102.167.157   <none>        80:32056/TCP   28d
+service/kubernetes          ClusterIP   10.96.0.1        <none>        443/TCP        273d
+service/web                 ClusterIP   10.111.198.209   <none>        80/TCP         75s
+
+[user@console ~]$ kubectl run dns-test --image=busybox -it --rm -- /bin/sh
+If you don't see a command prompt, try pressing enter.
+/ # cat /etc/resolv.conf
+nameserver 10.96.0.10     -> busybox pod의 DNS-server
+search default.svc.cluster.local svc.cluster.local cluster.local
+options ndots:5
+/ # nslookup 10.111.198.209   -> 이 IP를 사용시 실제로는 web.default.svc.cluster.local 이 도메인을 사용
+Server:         10.96.0.10
+Address:        10.96.0.10:53
+
+209.198.111.10.in-addr.arpa     name = web.default.svc.cluster.local
+
+
+[user@console ~]$ kubectl get svc -n kube-system    -> 다른 콘솔에서 확인
+NAME       TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)                  AGE
+kube-dns   ClusterIP   10.96.0.10   <none>        53/UDP,53/TCP,9153/TCP   273d
+
+CoreDNS : 서비스를 만들게 되면 클러스터 IP, 서비스 이름이 생성됨 / 클러스터 IP와 서비스 이름에 대한 매핑정보
+파드를 만들게 되면 파드이름, 파드 IP 가 생성됨 / 파드이름과 파드 IP에 대한 매핑정보 이 두가지를 관리하는게 Core DNS.
+쿠버네티스에서 동작하는 모든 pod에는 기본 nameserver가 Core DNS로 등록되어 있어서 클러스터 내부에서는 pod의 서비스, 클러스터 ip의 서비스에 대해서
+DNS name 조회를 할 수 있음
+
+
+◾작업클러스터: k8s
+• image nginx를사용하는resolverpod를생성하고resolver-service라는service를구성합니다.
+• 클러스터내에서service와pod 이름을조회할수있는지테스트합니다.
+• dns조회에사용하는pod이미지는busybox:1.28이고, service와pod 이름조회는nlsookup을사용합니다.
+• service 조회결과는/var/CKA2022/nginx.svc에pod name 조회결과는/var/CKA2022/nginx.pod파일에기록합니다.
+
+pod resolver / 10.244.1.91
+=> nslookup 10-244-1-91.default.pod.cluster.local > /var/CKA2022/nginx.pod
+svc resolver-service / 10.109.97.160
+=> nslookup 10.109.97.160 > /var/CKA2022/nginx.svc
+
+
+
+1.
+[user@console ~]$ kubectl run resolver --image=nginx
+pod/resolver created
+[user@console ~]$ kubectl expose pod resolver --port=80 --name=resolver-service
+service/resolver-service exposed
+[user@console ~]$ kubectl get pod resolver
+NAME       READY   STATUS    RESTARTS   AGE
+resolver   1/1     Running   0          40s
+[user@console ~]$ kubectl get pod resolver -o wide
+NAME       READY   STATUS    RESTARTS   AGE   IP            NODE          NOMINATED NODE   READINESS GATES
+resolver   1/1     Running   0          47s   10.244.1.91   k8s-worker1   <none>           <none>
+[user@console ~]$ kubectl get svc resolver-service
+NAME               TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE
+resolver-service   ClusterIP   10.109.97.160   <none>        80/TCP    28s
+
+2.
+[user@console ~]$ kubectl run test --image=busybox:1.28 -it --rm -- /bin/sh
+If you don't see a command prompt, try pressing enter.
+* busybox version 마다 nslookup을 지원하는 버전과 지원하지 않는 버전이 있으므로 가급적이면 1.28 버전 사용추천
+===================================================================================================
+/ # nslookup 10-244-1-91.default.pod.cluster.local
+Server:    10.96.0.10
+Address 1: 10.96.0.10 kube-dns.kube-system.svc.cluster.local
+
+Name:      10-244-1-91.default.pod.cluster.local
+Address 1: 10.244.1.91 10-244-1-91.resolver-service.default.svc.cluster.local
+
+/ # nslookup 10.109.97.160
+Server:    10.96.0.10
+Address 1: 10.96.0.10 kube-dns.kube-system.svc.cluster.local
+
+Name:      10.109.97.160
+Address 1: 10.109.97.160 resolver-service.default.svc.cluster.local
+===================================================================================================
+3.
+[user@console ~]$ cat > /var/CKA2022/nginx.pod    -> 내용 넣은후에 Ctrl + d 키로 빠져나오기
+Server:    10.96.0.10
+Address 1: 10.96.0.10 kube-dns.kube-system.svc.cluster.local
+
+Name:      10-244-1-91.default.pod.cluster.local
+Address 1: 10.244.1.91 10-244-1-91.resolver-service.default.svc.cluster.local
+
+[user@console ~]$ cat > /var/CKA2022/nginx.svc    -> 내용 넣은후에 Ctrl + d 키로 빠져나오기
+Server:    10.96.0.10
+Address 1: 10.96.0.10 kube-dns.kube-system.svc.cluster.local
+
+Name:      10.109.97.160
+Address 1: 10.109.97.160 resolver-service.default.svc.cluster.local
+
+
+[user@console ~]$ cat /var/CKA2022/nginx.pod
+Server:    10.96.0.10
+Address 1: 10.96.0.10 kube-dns.kube-system.svc.cluster.local
+
+Name:      10-244-1-91.default.pod.cluster.local
+Address 1: 10.244.1.91 10-244-1-91.resolver-service.default.svc.cluster.local
+
+[user@console ~]$ cat /var/CKA2022/nginx.svc
+Server:    10.96.0.10
+Address 1: 10.96.0.10 kube-dns.kube-system.svc.cluster.local
+
+Name:      10.109.97.160
+Address 1: 10.109.97.160 resolver-service.default.svc.cluster.local
