@@ -1,0 +1,223 @@
+Volume Mount - emptyDir
+
+Volume은 Kubernetes 스토리지의 추상화 개념
+컨테이너는 pod에 바인딩 되는 볼륨을 마운트하고 마치 로컬 파일시스템에 있는 것처럼 스토리지에 접근
+
+Kubernetes 스토리지
+volumes:
+-name: html
+ hostPath:
+  path: /hostdir_or_file
+  
+컨테이너 단위로 mount
+volumeMounts:
+-name: html
+ mountPath: /webdata
+ 
+ Volume type
+ emptyDir / HostPath / gitRepo / nfs / gcePersistentDisk, awsElastic-BlockStore, azureDisk /
+ cinder, cephfs, iscsi, flocker, glusterfs, quobyte, rbd, flexVolume, vsphere-volume, photonPersistentDisk, scaleIO /
+ configMap, secret, downwardAPI / persistentVolumeClaim
+ 
+ emptyDir Volume -> 임시적
+ Volume을 통해 컨테이너 간 데이터 공유
+ - emptyDir 볼륨은 빈 디렉토리로 시작
+ - Pod 내부에서 실행중인 애플리케이션은 필요한 모든 파일을 작성
+ - Pod를 삭제하면 볼륨의 내용이 손실됨
+ - 동일한 Pod에서 실행되는 컨테이너 간에 파일을 공유할 때 유용
+ 
+emptyDir Volume을 공유하는 multi-pod 운영
+◾작업클러스터: k8s
+• 다음조건에맞춰서nginx웹서버pod가생성한로그파일을받아서STDOUT으로출력하는busybox컨테이너를운영하시오.
+•Pod Name: weblog
+
+•Web container:
+•Image: nginx:1.17
+•Volume mount : /var/log/nginx
+•readwrite
+
+•Log container:
+•Image: busybox
+•Command: /bin/sh, -c, "tail -n+1 -f /data/access.log"
+•Volume mount : /data
+•readonly   -> default
+
+•emptyDir볼륨을통한데이터공유
+
+
+[user@console ~]$ kubectl run weblog --image=nginx:1.17 --dry-run=client -o yaml > weblog.yaml
+[user@console ~]$ vi weblog.yaml
+[user@console ~]$ cat weblog.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: weblog
+spec:
+  containers:
+  - image: nginx:1.17
+    name: web
+    volumeMounts:
+    - mountPath: /var/log/nginx
+      name: log-volume
+  - image: busybox
+    name: log
+    args: [/bin/sh, -c, "tail -n+1 -f /data/access.log"]
+    volumeMounts:
+    - mountPath: /data
+      name: log-volume
+      readOnly: true
+  volumes:
+  - name: log-volume
+    emptyDir: {}
+[user@console ~]$ kubectl apply -f weblog.yaml
+pod/weblog created
+[user@console ~]$ kubectl get pod
+NAME                        READY   STATUS    RESTARTS        AGE
+eshop-cart-app              1/1     Running   14 (6h3m ago)   216d
+eshop-configmap             1/1     Running   8 (6h3m ago)    36d
+eshop-store                 1/1     Running   9 (6h3m ago)    37d
+front-end-9c89c87dc-g6h2t   1/1     Running   6 (6h3m ago)    29d
+front-end-9c89c87dc-swg25   1/1     Running   6 (6h3m ago)    29d
+nginx-79488c9578-qwnfk      1/1     Running   12 (6h3m ago)   214d
+nginx-79488c9578-xpsvp      1/1     Running   10 (6h3m ago)   214d
+pod-secrets-via-env         1/1     Running   8 (6h3m ago)    35d
+pod-secrets-via-file        1/1     Running   8 (6h3m ago)    35d
+resolver                    1/1     Running   1 (6h3m ago)    24h
+tensorflow-gpu              1/1     Running   9 (6h3m ago)    37d
+weblog                      2/2     Running   0               18s
+
+[user@console ~]$ kubectl describe pod weblog
+Name:         weblog
+Namespace:    default
+Priority:     0
+Node:         k8s-worker1/10.0.2.11
+Start Time:   Wed, 26 Oct 2022 16:01:42 +0900
+Labels:       <none>
+Annotations:  <none>
+Status:       Running
+IP:           10.244.1.103
+IPs:
+  IP:  10.244.1.103
+Containers:
+  web:
+    Container ID:   docker://adcd7a66451fd10e8145b4d882b64f439f32797f942c0a1fcd19125a88a0387d
+    Image:          nginx:1.17
+    Image ID:       docker-pullable://nginx@sha256:6fff55753e3b34e36e24e37039ee9eae1fe38a6420d8ae16ef37c92d1eb26699
+    Port:           <none>
+    Host Port:      <none>
+    State:          Running
+      Started:      Wed, 26 Oct 2022 16:01:43 +0900
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+============================================================================================
+    Mounts:
+      /var/log/nginx from log-volume (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-lnwrw (ro)
+============================================================================================
+  log:
+    Container ID:  docker://50ebe7383800474cd53ee06552e988d4322f35e5759a95a0910f22c98611e05c
+    Image:         busybox
+    Image ID:      docker-pullable://busybox@sha256:3f7c4d1e0963db61bededc8b63458cc944dbf24473402793c1bf649c2df244bd
+    Port:          <none>
+    Host Port:     <none>
+    Args:
+      /bin/sh
+      -c
+      tail -n+1 -f /data/access.log
+    State:          Running
+      Started:      Wed, 26 Oct 2022 16:01:50 +0900
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+============================================================================================    
+    Mounts:
+      /data from log-volume (ro)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-lnwrw (ro)
+============================================================================================     
+Conditions:
+  Type              Status
+  Initialized       True
+  Ready             True
+  ContainersReady   True
+  PodScheduled      True
+============================================================================================
+Volumes:
+  log-volume:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:
+    SizeLimit:  <unset>
+============================================================================================
+  kube-api-access-lnwrw:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    ConfigMapOptional:       <nil>
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  42s   default-scheduler  Successfully assigned default/weblog to k8s-worker1
+  Normal  Pulled     42s   kubelet            Container image "nginx:1.17" already present on machine
+  Normal  Created    42s   kubelet            Created container web
+  Normal  Started    42s   kubelet            Started container web
+  Normal  Pulling    42s   kubelet            Pulling image "busybox"
+  Normal  Pulled     35s   kubelet            Successfully pulled image "busybox" in 6.30693748s
+  Normal  Created    35s   kubelet            Created container log
+  Normal  Started    35s   kubelet            Started container log
+-> Mount 내용 확인!! 
+
+[user@console ~]$ kubectl logs weblog -c log  -> 로그에 관련된 내용이 없어서 아무것도 
+[user@console ~]$ kubectl get pods -o wide
+NAME                        READY   STATUS    RESTARTS        AGE     IP             NODE          NOMINATED NODE   READINESS GATES
+eshop-cart-app              1/1     Running   14 (6h7m ago)   216d    10.244.1.93    k8s-worker1   <none>           <none>
+eshop-configmap             1/1     Running   8 (6h7m ago)    36d     10.244.1.98    k8s-worker1   <none>           <none>
+eshop-store                 1/1     Running   9 (6h7m ago)    37d     10.244.1.100   k8s-worker1   <none>           <none>
+front-end-9c89c87dc-g6h2t   1/1     Running   6 (6h7m ago)    29d     10.244.1.95    k8s-worker1   <none>           <none>
+front-end-9c89c87dc-swg25   1/1     Running   6 (6h7m ago)    29d     10.244.2.148   k8s-worker2   <none>           <none>
+nginx-79488c9578-qwnfk      1/1     Running   12 (6h7m ago)   214d    10.244.1.101   k8s-worker1   <none>           <none>
+nginx-79488c9578-xpsvp      1/1     Running   10 (6h7m ago)   214d    10.244.2.153   k8s-worker2   <none>           <none>
+pod-secrets-via-env         1/1     Running   8 (6h7m ago)    35d     10.244.1.97    k8s-worker1   <none>           <none>
+pod-secrets-via-file        1/1     Running   8 (6h7m ago)    35d     10.244.1.94    k8s-worker1   <none>           <none>
+resolver                    1/1     Running   1 (6h7m ago)    24h     10.244.1.96    k8s-worker1   <none>           <none>
+tensorflow-gpu              1/1     Running   9 (6h7m ago)    37d     10.244.2.149   k8s-worker2   <none>           <none>
+weblog                      2/2     Running   0               4m27s   10.244.1.103   k8s-worker1   <none>           <none>
+[user@console ~]$ ssh k8s-worker1
+Last login: Wed Sep 28 06:35:53 2022 from console
+[user@k8s-worker1 ~]$ curl 10.244.1.103
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+<style>
+    body {
+        width: 35em;
+        margin: 0 auto;
+        font-family: Tahoma, Verdana, Arial, sans-serif;
+    }
+</style>
+</head>
+<body>
+<h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and
+working. Further configuration is required.</p>
+
+<p>For online documentation and support please refer to
+<a href="http://nginx.org/">nginx.org</a>.<br/>
+Commercial support is available at
+<a href="http://nginx.com/">nginx.com</a>.</p>
+
+<p><em>Thank you for using nginx.</em></p>
+</body>
+</html>
+[user@k8s-worker1 ~]$ exit
+logout
+Connection to k8s-worker1 closed.
+[user@console ~]$ kubectl logs weblog -c log
+10.244.1.1 - - [26/Oct/2022:07:06:27 +0000] "GET / HTTP/1.1" 200 612 "-" "curl/7.29.0" "-"
+-> web container 에서는 access log를 남기고 / log container 에서는 log를 출력하여 보여줌으로써
+서로 볼륨을 통해 내용을 공유하고 있음을 확인
