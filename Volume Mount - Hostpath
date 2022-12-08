@@ -1,0 +1,16 @@
+hostPath
+- 노드의 파일시스템의 디렉토리나 파일을 컨테이너에 마운트
+- 노드에 디렉토리나 파일을 생성하여 마운트 가능
+- hostPath는 type 지시어를 이용해 mount 구성의 요구를 추가할 수 있다.
+
+volumes:
+- name: html
+  hostPath:
+   type: FileOrCreate
+   path: /hostdir_or_file
+   
+DirectoryOrCreate : 주어진 경로에 아무것도 없다면, 필요에 따라 kubelet의 소유권, 권한을 0755로 설정한 빈 디렉토리를 생성
+Directory : 주어진 경로에 디렉토리가 있어야 함
+FileOrCreate : 주어진 경로에 아무것도 없다면, 필요에 따라 kubelet의 소유권, 권한을 0755로 설정한 file을 생성한다.
+File : 주어진 경로에 파일이 있어야 함
+
