@@ -24,9 +24,7 @@ ETCD Restore
 (1) snapshot 파일을 데이터베이스 파일로 복원
 (2) 동작중인 etcd Pod 의 구성 정보를 복원된 데이터베이스 위치로 수정 적용
 
-
-
-
+Ex.)
 # etcd Back-up
 sudo ETCDCTL_API=3 etcdctl \ 
   --endpoints=https://127.0.0.1:2379 \
