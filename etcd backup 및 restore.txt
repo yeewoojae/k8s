@@ -1,4 +1,31 @@
 ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+ETCD
+ETCD -> Snapshot 저장했던곳으로 backup -> backup 된 곳에서 다른 클러스터쪽으로 restore 하여 원래 상태로 다시 복구
+
+• Coreos 가 만든 분산 key:value 형태의 데이터 스토리지
+• 쿠버네티스 클러스터의 정보를 저장(memory) 해서 사용
+• 모든 etcd 데이터는 etcd 데이터베이스 파일에 보관 : /var/lib/etcd
+• etcd 관리 명령 : etcdctl
+• etcdctl 설치 확인
+=> ETCD 를 호스팅 할 시스템에 ssh 로그인
+=> $ ssh k8s-master
+동작중인 etcd 버전과 etcdctl 툴이 설치 여부확인
+=> $ etcd --version
+=> $ etcdctl version
+
+
+ETCD backup
+• master 의 장애와 같은 예기치 못한 사고로 인해 ETCD 데이터베이스가 유실될 경우를 대비해서 Backup API를 제공
+• ETCD snapshot
+
+ETCD Restore
+• Snapshot 으로 저장한 database 파일을 동작중인 etcd 에 적용하여 snapshot 생성시점으로 되돌리기
+• 단계
+(1) snapshot 파일을 데이터베이스 파일로 복원
+(2) 동작중인 etcd Pod 의 구성 정보를 복원된 데이터베이스 위치로 수정 적용
+
+
+
 
 # etcd Back-up
 sudo ETCDCTL_API=3 etcdctl \ 
