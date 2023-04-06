@@ -1,0 +1,59 @@
+kubectl config current-context
+-> 현재 클러스터 확인
+
+kubectl config use-context hk8s
+-> 클러스터 위치 바꾸기
+
+Control-plane(k8s-master)
+Core DNS + NIC + etcd + scheduler + controller + API Server
+
+Worker-node(k8s-worker1, k8s-worker2)
+kubelet + NIC + docker
+
+kubectl 명령어 -> k8s, hk8s -> API server(인증서/6443 포트) -> API server가 해당 node의 kubelet에 전달
+                               => etcd(저장소)에서 정보를 꺼내옴 
+                               => scheduler 적합성 판단 후 API server에게 전달
+                               => etcd에 기록 
+                               => controller에서 replica 수 보장
+                               => coreDNS에서 cluster ip, service name 매핑 정보 저장
+
+kubelet(cadvisor) -> 컨테이너 관련 정보, 하드웨어 정보 등
+워커노드의 모든 정보 수집 -> 마스터노드의 API Server로 전송
+API Server(pod, deployment ...) -> etcd로전송(key:value 형태로)
+etcd가 손상된다면 쿠버네티스 서비스 진행 X(클러스터 서비스 진행불가)
+etcd는 여러개가 존재 해야함(동일한 etcd 최소 3개이상 유지(기본적으로 3개), HA(고가용성) 클러스터 환경)
+
+etcd는 쿠버네티스 클러스터의 정보를 저장(memory)해서 사용
+모든 etcd 데이터는 etcd 데이터베이스 파일에 보관 : /var/lib/etcd 안에 스냅샷을떠서 복제를 한후에 저장
+
+마스터 노드에서 etcd는 pod(static pod) 형태로 동작
+
+etcdctl snapshot save <snapshot filename>
+-> snapshot file로 저장(/data/etcd-snapshot.db)
+ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 \
+  --cacert=<trusted-ca-file> --cert=<cert-file> --key=<key-file> \
+  snapshot save <backup-file-location>
+
+etcdctl snapshot restore <snapshot filename>
+-> /var/lib/etcd-new/에서 yaml 파일 설정을 바꿔 이쪽에서 부팅되게 설정(또다른 etcd db에서)
+ETCDCTL_API=3 etcdctl --data-dir <data-dir-location> snapshot restore snapshotdb
+
+
+ex) kubectl get nodes 실행시 두번째 worker node가 액티브 되어있지 않은 상태일때
+1. worker-node2의 kubelet daemon 이 running 중인지 확인 필요 
+2. 컨테이너간에 통신 문제 확인하기 위해 CNI(Container Network Interface)가 정상적인지 확인
+
+kubectl [command] [TYPE] [NAME] [falgs]
+command : 자원(object)에 실행할 명령(create, delete, edit...)
+TYPE : 자원의 타입(node, pod, service...)
+NAME : 자원의 이름
+flags : 부가적으로 설정할 옵션(--help, -o options, --dry-run...)
+
+kubectl config current-context로 현재 클러스터 확인 생활화!!
+
+ex) * sudo chmod 777 -dir 로 권한 설정 변경 후 sudo chown [username] 으로 권한 부여
+
+kubectl get nodes | cut -d' ' -f1 | grep -v NAME > /var/CKA2022/hk8s-node-info.txt
+kubectl get nodes | grep -i -w ready | cut -d' ' -f1 > /var/CKA2022/hk8s-node-ready.txt
+grep : -i 옵션 - 대,소문자 구분 X / -w 옵션 - word 매치 / -v 옵션 - 해당 word 가 들어간 행 제외
+cut : -d 옵션 - 해당하는 구분자로 나눔 / -f 옵션 - field 구분(앞에서부터 1.2.3...)
