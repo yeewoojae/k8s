@@ -12,3 +12,176 @@ ETCD -> Snapshot 저장했던곳으로 backup -> backup 된 곳에서 다른 클
 동작중인 etcd 버전과 etcdctl 툴이 설치 여부확인
 => $ etcd --version
 => $ etcdctl version
+
+
+Ex.)
+『 ETCD BACKUP 』
+
+• ETCD를 호스팅 할 시스템에 ssh 로그인
+=> $ ssh k8s-master
+• etcdctl 툴이 설치 여부 확인
+=> $ etcdctl version / etcdctl --version
+***************************************************************************************
+ubuntu@k8s-master:~$ etcdctl --version
+etcdctl version: 3.3.25
+API version: 2
+***************************************************************************************
+
+                          etcd snapshot
+/var/lib/etcd database -------------------> /tmp/etcd-backup
+
+"참고 https://kubernetes.io/docs/tasks/administer-cluster/configure-upgrade-etcd/#backing-up-an-etcd-cluster 참고"
+ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 \
+  --cacert=<trusted-ca-file> --cert=<cert-file> --key=<key-file> \
+  snapshot save <backup-file-location>
+  
+=> sudo ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+  --cert=/etc/kubernetes/pki/etcd/server.crt \
+  --key=/etc/kubernetes/pki/etcd/server.key \
+  snapshot save /tmp/etcd-backup
+ (<backup-file-location> 저장할 파일 이름으로 변경) 
+ (<trusted-ca-file>, <cert-file>, <key-file> 은 모르기 때문에 찾아서 넣어줘야 한다.)
+*********************************************************************************************
+ubuntu@k8s-master:~$ sudo ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+  --cert=/etc/kubernetes/pki/etcd/server.crt \
+  --key=/etc/kubernetes/pki/etcd/server.key \
+  snapshot save /tmp/etcd-backup
+2023-04-06 14:38:58.483305 I | clientv3: opened snapshot stream; downloading
+2023-04-06 14:38:58.711649 I | clientv3: completed snapshot read; closing
+Snapshot saved at /tmp/etcd-backup
+
+ubuntu@k8s-master:~$ ls -l /tmp
+total 8620
+-rw-r--r-- 1 root root 8802336 Apr  6 14:38 etcd-backup
+=> backup 파일에는 현재 저장해둔 pod, deployment 등등의 상태들이 모두 저장되어 있다.
+**********************************************************************************************
+
+trusted-ca-file 확인
+=> $ ps-ef| grep kube| grep trusted-ca-file
+=> --trusted-ca-file=/etc/kubernetes/pki/etcd/ca.crt
+**************************************************************************************************
+ubuntu@k8s-master:~$ ps -ef | grep kube | grep trusted-ca-file
+root        1250    1028  2 10:26 ?        00:06:18 etcd --advertise-client-urls=https://10.0.2.10:2379
+--cert-file=/etc/kubernetes/pki/etcd/server.crt --client-cert-auth=true --data-dir=/var/lib/etcd
+--experimental-initial-corrupt-check=true --experimental-watch-progress-notify-interval=5s
+--initial-advertise-peer-urls=https://10.0.2.10:2380 --initial-cluster=k8s-master=https://10.0.2.10:2380
+--key-file=/etc/kubernetes/pki/etcd/server.key --listen-client-urls=https://127.0.0.1:2379,https://10.0.2.10:2379
+--listen-metrics-urls=http://127.0.0.1:2381 --listen-peer-urls=https://10.0.2.10:2380
+--name=k8s-master --peer-cert-file=/etc/kubernetes/pki/etcd/peer.crt --peer-client-cert-auth=true
+--peer-key-file=/etc/kubernetes/pki/etcd/peer.key --peer-trusted-ca-file=/etc/kubernetes/pki/etcd/ca.crt
+--snapshot-count=10000 --trusted-ca-file=/etc/kubernetes/pki/etcd/ca.crt
+**************************************************************************************************
+
+cert-file 확인
+=> $ ps-ef| grep kube| grep cert-file
+=> --cert-file=/etc/kubernetes/pki/etcd/server.crt
+***************************************************************************************************
+ubuntu@k8s-master:~$ ps -ef | grep kube | grep cert-file
+root        1250    1028  2 10:26 ?        00:06:22 etcd --advertise-client-urls=https://10.0.2.10:2379
+--cert-file=/etc/kubernetes/pki/etcd/server.crt
+***************************************************************************************************
+
+key-file 확인
+=> $ ps–ef| grep kube| grep key-file
+=> --key-file=/etc/kubernetes/pki/etcd/server.key
+***************************************************************************************************
+ubuntu@k8s-master:~$ ps -ef | grep kube | grep key-file
+root        1250    1028  2 10:26 ?        00:06:29 etcd --advertise-client-urls=https://10.0.2.10:2379
+--cert-file=/etc/kubernetes/pki/etcd/server.crt --client-cert-auth=true --data-dir=/var/lib/etcd
+--experimental-initial-corrupt-check=true --experimental-watch-progress-notify-interval=5s
+--initial-advertise-peer-urls=https://10.0.2.10:2380 --initial-cluster=k8s-master=https://10.0.2.10:2380
+--key-file=/etc/kubernetes/pki/etcd/server.key --listen-client-urls=https://127.0.0.1:2379,https://10.0.2.10:2379
+--listen-metrics-urls=http://127.0.0.1:2381 --listen-peer-urls=https://10.0.2.10:2380 --name=k8s-master
+--peer-cert-file=/etc/kubernetes/pki/etcd/peer.crt --peer-client-cert-auth=true
+--peer-key-file=/etc/kubernetes/pki/etcd/peer.key --peer-trusted-ca-file=/etc/kubernetes/pki/etcd/ca.crt
+--snapshot-count=10000 --trusted-ca-file=/etc/kubernetes/pki/etcd/ca.crt
+*****************************************************************************************************
+
+
+『 ETCD RESTORE 』
+• 현재 etcd 상태를 수정하고 snapshot 파일을 이용해 복원 했을때 원래대로 복원되었는지 확인
+=> $ kubectl get pods
+=> $ kubectl delete deployment XXXXX
+=> $ kubectl get pods
+
+새로운 데이터 디렉토리 주소
+=> new database dir : /var/lib/etcd-new
+
+/tmp/etct-backup --------> 작업1. /var/lib/etcd-new ------> 작업2. etcd pod /var/lib/etcd-new
+=> 새로운 라이브러리에 restore 한후에 etcd 라이브러리 경로를 변경하여 restore 된 
+
+ubuntu@k8s-master:~$ kubectl delete pods fast-01
+pod "fast-01" deleted
+=> 현재 fast-01 pod가 삭제된 상태
+
+"참고 https://kubernetes.io/docs/tasks/administer-cluster/configure-upgrade-etcd/#restoring-an-etcd-cluster 참고"
+작업1. 새로운 데이터 디렉토리 주소에 restore
+1. ETCDCTL_API=3 etcdctl snapshot restore --data-dir <data-dir-location> <snapshotdb> * Document 추천
+=> $ sudo ETCDCTL_API=3 etcdctl snapshot restore --data-dir=/var/lib/etcd-new /tmp/etcd-backup
+=> $ sudo tree /var/lib/etcd-new/
+********************************************************************************************************
+ubuntu@k8s-master:~$ sudo ETCDCTL_API=3 etcdctl snapshot restore --data-dir=/var/lib/etcd-new /tmp/etcd-backup
+2023-04-06 14:57:58.181968 I | mvcc: restore compact to 125299
+2023-04-06 14:57:58.198764 I | etcdserver/membership: added member 8e9e05c52164694d [http://localhost:2380] to cluster cdf818194e3a8c32
+ubuntu@k8s-master:~$ sudo tree /var/lib/etcd-new/
+/var/lib/etcd-new/
+└── member
+    ├── snap
+    │   ├── 0000000000000001-0000000000000001.snap
+    │   └── db
+    └── wal
+        └── 0000000000000000-0000000000000000.wal
+
+3 directories, 3 files
+*********************************************************************************************************
+2. ETCDCTL_API=3 etcdctl --data-dir <data-dir-location> snapshot restore <snapshotdb>
+=> $ sudo ETCDCTL_API=3 etcdctl--data-dir=/var/lib/etcd-new snapshot restore /tmp/etcd-backup
+=> $ sudo tree /var/lib/etcd-new/
+
+작업2. restore 된 디렉토리로 경로 설정 변경
+etcdPod 에 복원된 etcd-data 위치를 적용하고 Pod 다시 시작
+*********************************************************************************************************
+ubuntu@k8s-master:~$ sudo -i
+root@k8s-master:~# cd /etc/kubernetes/manifests/
+root@k8s-master:/etc/kubernetes/manifests# ll
+total 24
+drwxr-xr-x 2 root root 4096 Feb 22 18:31 ./
+drwxr-xr-x 4 root root 4096 Feb 22 18:31 ../
+-rw------- 1 root root 2360 Feb 22 18:31 etcd.yaml
+-rw------- 1 root root 3844 Feb 22 18:31 kube-apiserver.yaml
+-rw------- 1 root root 3371 Feb 22 18:31 kube-controller-manager.yaml
+-rw------- 1 root root 1440 Feb 22 18:31 kube-scheduler.yaml
+
+1. root@k8s-master:/etc/kubernetes/manifests# vi etcd.yaml
+2. ubuntu@k8s-master:~$ sudo vi /etc/kubernetes/manifests/etcd.yaml
+대문자 G 누르고 가장 아래행으로 이동
+  - hostPath:                                  - hostPath:
+      path: /var/lib/etcd                          path: /var/lib/etcd-new
+      type: DirectoryOrCreate          =>          type: DirectoryOrCreate
+    name: etcd-data                              name: etcd-data
+***********************************************************************************************************
+docker 명령으로 etcd 가 restart 되었는지 확인
+=> $ sudo docker ps-a | grep etcd ---------------------> 현재 docker 명령어 지원 X
+복원 되었는지 확인
+=> $ kubectl get pods
+*************************************************************************************************
+ubuntu@k8s-master:~$ kubectl get pods
+NAME                         READY   STATUS                   RESTARTS        AGE
+busybox-sleep                1/1     Running                  2 (4h43m ago)   27h
+campus-01                    1/1     Running                  2 (4h44m ago)   27h
+cka-webserver                1/1     Running                  2 (4h43m ago)   27h
+custom-app                   1/1     Running                  2 (4h43m ago)   27h
+eshop-cart-app               1/1     Running                  2 (4h43m ago)   27h
+fast-01                      0/1     ContainerStatusUnknown   1               27h --------> 복원됨
+front-end-5b76b7ff75-9cgcb   1/1     Running                  2 (4h43m ago)   27h
+front-end-5b76b7ff75-c97hl   0/1     ContainerStatusUnknown   1               27h
+front-end-5b76b7ff75-rkns4   1/1     Running                  2 (4h43m ago)   27h
+web                          0/1     Completed                1 (27h ago)     27h
+****************************************************************************************************
+
+
+
+
+
