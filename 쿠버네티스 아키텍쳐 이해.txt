@@ -42,3 +42,18 @@ ETCDCTL_API=3 etcdctl --data-dir <data-dir-location> snapshot restore snapshotdb
 ex) kubectl get nodes 실행시 두번째 worker node가 액티브 되어있지 않은 상태일때
 1. worker-node2의 kubelet daemon 이 running 중인지 확인 필요 
 2. 컨테이너간에 통신 문제 확인하기 위해 CNI(Container Network Interface)가 정상적인지 확인
+
+kubectl [command] [TYPE] [NAME] [falgs]
+command : 자원(object)에 실행할 명령(create, delete, edit...)
+TYPE : 자원의 타입(node, pod, service...)
+NAME : 자원의 이름
+flags : 부가적으로 설정할 옵션(--help, -o options, --dry-run...)
+
+kubectl config current-context로 현재 클러스터 확인 생활화!!
+
+ex) * sudo chmod 777 -dir 로 권한 설정 변경 후 sudo chown [username] 으로 권한 부여
+
+kubectl get nodes | cut -d' ' -f1 | grep -v NAME > /var/CKA2022/hk8s-node-info.txt
+kubectl get nodes | grep -i -w ready | cut -d' ' -f1 > /var/CKA2022/hk8s-node-ready.txt
+grep : -i 옵션 - 대,소문자 구분 X / -w 옵션 - word 매치 / -v 옵션 - 해당 word 가 들어간 행 제외
+cut : -d 옵션 - 해당하는 구분자로 나눔 / -f 옵션 - field 구분(앞에서부터 1.2.3...)
