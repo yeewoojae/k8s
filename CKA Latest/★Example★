@@ -1,4 +1,4 @@
-문제1.
+문제1. 『 기본문제 』
 
 1. 쿠버네티스클러스터정보보기
 - console에 user 계정으로 로그인 한 후 hk8s 클러스터로 이동하시오.
@@ -8,7 +8,7 @@
 - hk8s 클러스터에서 ready상태인 노드의 이름만 추출하여 /var/CKA2022/hk8s-node-ready.txt 파일에 저장하시오.
 => kubectl get nodes | grep -i -w ready | cut -d' ' -f1 > /var/CKA2022/hk8s-node-ready.txt
 
-문제2.
+문제2. 『 기본문제 』
 
 - k8s 클러스터로 이동하시오.
 => kubectl config current-context
@@ -22,3 +22,72 @@
 => echo "flannel" > /var/CKA2022/k8s_cni_name.txt
 - k8s 클러스터에서 ready 상태인 노드 이름을 추출하여 /var/CKA2022/k8s-node-ready.txt 에 저장하시오.
 => kubectl get nodes | grep -i -w ready | cut -d' ' -f1 > /var/CKA2022/k8s-node-ready.txt
+
+문제3. 『 ETCD Backup & Restore 』
+
+◾ 작업 클러스터: k8s
+https://127.0.0.1:2379 에서 실행중인 etcd 의 snapshot을 생성하고 snapshot을 /data/etcd-snapshot.db 에 저장합니다.
+그런 다음 /data/etcd-snapshot-previous.db 에 있는 기존의 이전 스냅샷을 복원합니다.
+etcdctl을 사용하여 서버에 연결하기 위해 다음 TLS 인증서/키가 제공됩니다.
+
+• CA certificate : /etc/kubernetes/pki/etcd/ca.crt
+• Client certificate : /etc/kubernetes/pki/etcd/server.crt
+• Client key : /etc/kubernetes/pki/etcd/server.key
+
+sudo ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+  --cert=/etc/kubernetes/pki/etcd/server.crt \
+  --key=/etc/kubernetes/pki/etcd/server.key \
+  snapshot save /data/etcd-snapshot.db
+
+sudo ETCDCTL_API=3 etcdctl snapshot restore --data-dir /var/lib/etcd-previous(임의설정) /data/etcd-snapshot-previous.db
+sudo ETCDCTL_API=3 etcdctl snapshot restore --data-dir /var/lib/etcd-previous /data/etcd-snapshot-previous.db
+
+*************************************************************************************************
+ubuntu@k8s-master:~$ sudo ETCDCTL_API=3 etcdctl --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+  --cert=/etc/kubernetes/pki/etcd/server.crt \
+  --key=/etc/kubernetes/pki/etcd/server.key \
+  snapshot save /data/etcd-snapshot.db
+2023-04-06 17:09:22.639854 I | clientv3: opened snapshot stream; downloading
+2023-04-06 17:09:22.828838 I | clientv3: completed snapshot read; closing
+Snapshot saved at /data/etcd-snapshot.db
+ubuntu@k8s-master:~$ sudo ls -l /data/etcd-snapshot.db
+-rw-r--r-- 1 root root 8802336 Apr  6 17:09 /data/etcd-snapshot.db
+ubuntu@k8s-master:~$
+ubuntu@k8s-master:~$
+ubuntu@k8s-master:~$ sudo ETCDCTL_API=3 etcdctl snapshot restore --data-dir /var/lib/etcd-previous /data/etcd-snapshot-previous.db
+2023-04-06 17:14:29.826391 I | mvcc: restore compact to 66008
+2023-04-06 17:14:29.848350 I | etcdserver/membership: added member 8e9e05c52164694d [http://localhost:2380] to cluster cdf818194e3a8c32
+ubuntu@k8s-master:~$ sudo tree /var/lib/etcd-previous/
+/var/lib/etcd-previous/
+└── member
+    ├── snap
+    │   ├── 0000000000000001-0000000000000001.snap
+    │   └── db
+    └── wal
+        └── 0000000000000000-0000000000000000.wal
+
+3 directories, 3 files
+
+ubuntu@k8s-master:~$ sudo vi /etc/kubernetes/manifests/etcd.yaml
+  - hostPath:
+      path: /var/lib/etcd-previous
+      type: DirectoryOrCreate
+    name: etcd-data
+ubuntu@k8s-master:~$ kubectl get pods
+NAME                         READY   STATUS                   RESTARTS      AGE
+busybox-sleep                1/1     Running                  0             30h
+campus-01                    1/1     Running                  0             30h
+cka-webserver                1/1     Running                  0             30h
+custom-app                   1/1     Running                  0             30h
+eshop-cart-app               1/1     Running                  0             30h
+fast-01                      1/1     Running                  0             30h
+front-end-5b76b7ff75-9cgcb   1/1     Running                  0             30h
+front-end-5b76b7ff75-c97hl   0/1     ContainerStatusUnknown   1             30h
+front-end-5b76b7ff75-rkns4   1/1     Running                  0             29h
+web                          0/1     Completed                1 (30h ago)   30h
+******************************************************************************************************
+
+
+
