@@ -59,7 +59,7 @@ total 8620
 **********************************************************************************************
 
 trusted-ca-file 확인
-=> $ ps-ef| grep kube| grep trusted-ca-file
+=> $ ps -ef | grep kube | grep trusted-ca-file
 => --trusted-ca-file=/etc/kubernetes/pki/etcd/ca.crt
 **************************************************************************************************
 ubuntu@k8s-master:~$ ps -ef | grep kube | grep trusted-ca-file
@@ -75,7 +75,7 @@ root        1250    1028  2 10:26 ?        00:06:18 etcd --advertise-client-urls
 **************************************************************************************************
 
 cert-file 확인
-=> $ ps-ef| grep kube| grep cert-file
+=> $ ps -ef | grep kube | grep cert-file
 => --cert-file=/etc/kubernetes/pki/etcd/server.crt
 ***************************************************************************************************
 ubuntu@k8s-master:~$ ps -ef | grep kube | grep cert-file
@@ -84,7 +84,7 @@ root        1250    1028  2 10:26 ?        00:06:22 etcd --advertise-client-urls
 ***************************************************************************************************
 
 key-file 확인
-=> $ ps–ef| grep kube| grep key-file
+=> $ ps –ef | grep kube | grep key-file
 => --key-file=/etc/kubernetes/pki/etcd/server.key
 ***************************************************************************************************
 ubuntu@k8s-master:~$ ps -ef | grep kube | grep key-file
