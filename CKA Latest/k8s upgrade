@@ -1,0 +1,316 @@
+k8s upgrade
+
+k8s packages
+• kubeadm : 클러스터를 부트스트랩하는 명령
+• kubelet : Pod 와 Container 시작과 같은 작업을 수행하는 컴포넌트
+• kubectl : 클러스터와 통신하기 위한 커맨드라인 유틸리티
+
+" hk8s Master node "
+Ubuntu
+
+• kubeadm, kubelet, kubectl 을 1.22.4 에서 1.26.3 버전으로 업그레이드
+• Control-plane Upgrade
+1. Upgrade 할 master 에 접속 : ssh <master>
+***************************************************************************************************
+ubuntu@console:~$ ssh hk8s-master
+Welcome to Ubuntu 22.04.1 LTS (GNU/Linux 5.15.0-60-generic x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/advantage
+
+This system has been minimized by removing packages and content that are
+not required on a system that users do not log into.
+
+To restore this content, you can run the 'unminimize' command.
+Last login: Tue Apr 11 16:27:57 2023 from 10.0.2.5
+*****************************************************************************************************
+
+2. 업그레이드할 버전 확인
+apt update
+apt-cache madison kubeadm | tail -5
+*******************************************************************************************************
+ubuntu@hk8s-master:~$ sudo apt update
+Get:1 https://download.docker.com/linux/ubuntu jammy InRelease [48.9 kB]
+Get:2 https://download.docker.com/linux/ubuntu jammy/stable amd64 Packages [15.5 kB]
+Hit:4 http://kr.archive.ubuntu.com/ubuntu jammy InRelease
+Get:3 https://packages.cloud.google.com/apt kubernetes-xenial InRelease [8993 B]
+Get:5 http://kr.archive.ubuntu.com/ubuntu jammy-updates InRelease [119 kB]
+Get:6 https://packages.cloud.google.com/apt kubernetes-xenial/main amd64 Packages [64.5 kB]
+Get:7 http://kr.archive.ubuntu.com/ubuntu jammy-backports InRelease [108 kB]
+Get:8 http://kr.archive.ubuntu.com/ubuntu jammy-security InRelease [110 kB]
+Get:9 http://kr.archive.ubuntu.com/ubuntu jammy-updates/main amd64 Packages [992 kB]
+Get:10 http://kr.archive.ubuntu.com/ubuntu jammy-updates/main Translation-en [210 kB]
+Get:11 http://kr.archive.ubuntu.com/ubuntu jammy-updates/restricted amd64 Packages [748 kB]
+Get:12 http://kr.archive.ubuntu.com/ubuntu jammy-updates/restricted Translation-en [116 kB]
+Get:13 http://kr.archive.ubuntu.com/ubuntu jammy-updates/universe amd64 Packages [899 kB]
+Get:14 http://kr.archive.ubuntu.com/ubuntu jammy-updates/universe Translation-en [180 kB]
+Get:15 http://kr.archive.ubuntu.com/ubuntu jammy-updates/multiverse amd64 Packages [24.1 kB]
+Get:16 http://kr.archive.ubuntu.com/ubuntu jammy-updates/multiverse Translation-en [6312 B]
+Get:17 http://kr.archive.ubuntu.com/ubuntu jammy-backports/main amd64 Packages [40.6 kB]
+Get:18 http://kr.archive.ubuntu.com/ubuntu jammy-backports/universe amd64 Packages [20.3 kB]
+Get:19 http://kr.archive.ubuntu.com/ubuntu jammy-backports/universe Translation-en [14.4 kB]
+Get:20 http://kr.archive.ubuntu.com/ubuntu jammy-security/main amd64 Packages [728 kB]
+Get:21 http://kr.archive.ubuntu.com/ubuntu jammy-security/main Translation-en [147 kB]
+Get:22 http://kr.archive.ubuntu.com/ubuntu jammy-security/restricted amd64 Packages [701 kB]
+Get:23 http://kr.archive.ubuntu.com/ubuntu jammy-security/restricted Translation-en [109 kB]
+Get:24 http://kr.archive.ubuntu.com/ubuntu jammy-security/universe amd64 Packages [716 kB]
+Get:25 http://kr.archive.ubuntu.com/ubuntu jammy-security/universe Translation-en [118 kB]
+Get:26 http://kr.archive.ubuntu.com/ubuntu jammy-security/multiverse amd64 Packages [19.4 kB]
+Get:27 http://kr.archive.ubuntu.com/ubuntu jammy-security/multiverse Translation-en [4068 B]
+Fetched 6268 kB in 9s (735 kB/s)
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+84 packages can be upgraded. Run 'apt list --upgradable' to see them.
+ubuntu@hk8s-master:~$ sudo apt-cache madison kubeadm | head -5
+   kubeadm |  1.26.3-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubeadm |  1.26.2-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubeadm |  1.26.1-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubeadm |  1.26.0-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubeadm |  1.25.8-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+*************************************************************************************************************
+
+3. kubeadm 업그레이드
+sudo -i
+apt-mark unhold kubeadm && \
+apt-get update && apt-get install -y kubeadm=1.26.3-00 && \
+apt-mark hold kubeadm
+
+kubeadm version
+sudo kubeadm upgrade plan
+sudo kubeadm upgrade apply v1.26.3
+-> 위 3줄은 꼭 control plane 에서만 
+************************************************************************************************************
+debconf: unable to initialize frontend: Dialog
+debconf: (No usable dialog-like program is installed, so the dialog based frontend cannot be used. at /usr/share/perl5/Debconf/FrontEnd/Dialog.pm line 78.)
+
+echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
+sudo apt-get install -y -q
+-> 위 에러 두 줄로 해결 완료!!
+
+
+ubuntu@hk8s-master:~$ kubeadm version
+kubeadm version: &version.Info{Major:"1", Minor:"26", GitVersion:"v1.26.3", GitCommit:"9e644106593f3f4aa98f8a84b23db5fa378900bd", GitTreeState:"clean", BuildDate:"2023-03-15T13:38:47Z", GoVersion:"go1.19.7", Compiler:"gc", Platform:"linux/amd64"}
+
+ubuntu@hk8s-master:~$ sudo kubeadm upgrade plan v1.26.3
+[upgrade/config] Making sure the configuration is correct:
+[upgrade/config] Reading configuration from the cluster...
+[upgrade/config] FYI: You can look at this config file with 'kubectl -n kube-system get cm kubeadm-config -o yaml'
+[preflight] Running pre-flight checks.
+[upgrade] Running cluster health checks
+[upgrade] Fetching available versions to upgrade to
+[upgrade/versions] Cluster version: v1.26.2
+[upgrade/versions] kubeadm version: v1.26.3
+[upgrade/versions] Target version: v1.26.3
+[upgrade/versions] Latest version in the v1.26 series: v1.26.3
+
+Components that must be upgraded manually after you have upgraded the control plane with 'kubeadm upgrade apply':
+COMPONENT   CURRENT       TARGET
+kubelet     2 x v1.26.0   v1.26.3
+            1 x v1.26.3   v1.26.3
+
+Upgrade to the latest version in the v1.26 series:
+
+COMPONENT                 CURRENT   TARGET
+kube-apiserver            v1.26.2   v1.26.3
+kube-controller-manager   v1.26.2   v1.26.3
+kube-scheduler            v1.26.2   v1.26.3
+kube-proxy                v1.26.2   v1.26.3
+CoreDNS                   v1.9.3    v1.9.3
+etcd                      3.5.6-0   3.5.6-0
+
+You can now apply the upgrade by executing the following command:
+
+        kubeadm upgrade apply v1.26.3
+
+_____________________________________________________________________
+
+
+The table below shows the current state of component configs as understood by this version of kubeadm.
+Configs that have a "yes" mark in the "MANUAL UPGRADE REQUIRED" column require manual config upgrade or
+resetting to kubeadm defaults before a successful upgrade can be performed. The version to manually
+upgrade to is denoted in the "PREFERRED VERSION" column.
+
+API GROUP                 CURRENT VERSION   PREFERRED VERSION   MANUAL UPGRADE REQUIRED
+kubeproxy.config.k8s.io   v1alpha1          v1alpha1            no
+kubelet.config.k8s.io     v1beta1           v1beta1             no
+_____________________________________________________________________
+
+ubuntu@hk8s-master:~$ sudo kubeadm upgrade apply v1.26.3
+[upgrade/config] Making sure the configuration is correct:
+[upgrade/config] Reading configuration from the cluster...
+[upgrade/config] FYI: You can look at this config file with 'kubectl -n kube-system get cm kubeadm-config -o yaml'
+[preflight] Running pre-flight checks.
+[upgrade] Running cluster health checks
+[upgrade/version] You have chosen to change the cluster version to "v1.26.3"
+[upgrade/versions] Cluster version: v1.26.2
+[upgrade/versions] kubeadm version: v1.26.3
+[upgrade] Are you sure you want to proceed? [y/N]: y
+[upgrade/prepull] Pulling images required for setting up a Kubernetes cluster
+[upgrade/prepull] This might take a minute or two, depending on the speed of your internet connection
+[upgrade/prepull] You can also perform this action in beforehand using 'kubeadm config images pull'
+[upgrade/apply] Upgrading your Static Pod-hosted control plane to version "v1.26.3" (timeout: 5m0s)...
+[upgrade/etcd] Upgrading to TLS for etcd
+[upgrade/staticpods] Preparing for "etcd" upgrade
+[upgrade/staticpods] Current and new manifests of etcd are equal, skipping upgrade
+[upgrade/etcd] Waiting for etcd to become available
+[upgrade/staticpods] Writing new Static Pod manifests to "/etc/kubernetes/tmp/kubeadm-upgraded-manifests662376228"
+[upgrade/staticpods] Preparing for "kube-apiserver" upgrade
+[upgrade/staticpods] Renewing apiserver certificate
+[upgrade/staticpods] Renewing apiserver-kubelet-client certificate
+[upgrade/staticpods] Renewing front-proxy-client certificate
+[upgrade/staticpods] Renewing apiserver-etcd-client certificate
+[upgrade/staticpods] Moved new manifest to "/etc/kubernetes/manifests/kube-apiserver.yaml" and backed up old manifest to "/etc/kubernetes/tmp/kubeadm-backup-manifests-2023-04-11-17-21-01/kube-apiserver.yaml"
+[upgrade/staticpods] Waiting for the kubelet to restart the component
+[upgrade/staticpods] This might take a minute or longer depending on the component/version gap (timeout 5m0s)
+[apiclient] Found 1 Pods for label selector component=kube-apiserver
+[upgrade/staticpods] Component "kube-apiserver" upgraded successfully!
+[upgrade/staticpods] Preparing for "kube-controller-manager" upgrade
+[upgrade/staticpods] Renewing controller-manager.conf certificate
+[upgrade/staticpods] Moved new manifest to "/etc/kubernetes/manifests/kube-controller-manager.yaml" and backed up old manifest to "/etc/kubernetes/tmp/kubeadm-backup-manifests-2023-04-11-17-21-01/kube-controller-manager.yaml"
+[upgrade/staticpods] Waiting for the kubelet to restart the component
+[upgrade/staticpods] This might take a minute or longer depending on the component/version gap (timeout 5m0s)
+[apiclient] Found 1 Pods for label selector component=kube-controller-manager
+[upgrade/staticpods] Component "kube-controller-manager" upgraded successfully!
+[upgrade/staticpods] Preparing for "kube-scheduler" upgrade
+[upgrade/staticpods] Renewing scheduler.conf certificate
+[upgrade/staticpods] Moved new manifest to "/etc/kubernetes/manifests/kube-scheduler.yaml" and backed up old manifest to "/etc/kubernetes/tmp/kubeadm-backup-manifests-2023-04-11-17-21-01/kube-scheduler.yaml"
+[upgrade/staticpods] Waiting for the kubelet to restart the component
+[upgrade/staticpods] This might take a minute or longer depending on the component/version gap (timeout 5m0s)
+[apiclient] Found 1 Pods for label selector component=kube-scheduler
+[upgrade/staticpods] Component "kube-scheduler" upgraded successfully!
+[upload-config] Storing the configuration used in ConfigMap "kubeadm-config" in the "kube-system" Namespace
+[kubelet] Creating a ConfigMap "kubelet-config" in namespace kube-system with the configuration for the kubelets in the cluster
+[kubelet-start] Writing kubelet configuration to file "/var/lib/kubelet/config.yaml"
+[bootstrap-token] Configured RBAC rules to allow Node Bootstrap tokens to get nodes
+[bootstrap-token] Configured RBAC rules to allow Node Bootstrap tokens to post CSRs in order for nodes to get long term certificate credentials
+[bootstrap-token] Configured RBAC rules to allow the csrapprover controller automatically approve CSRs from a Node Bootstrap Token
+[bootstrap-token] Configured RBAC rules to allow certificate rotation for all node client certificates in the cluster
+[addons] Applied essential addon: CoreDNS
+[addons] Applied essential addon: kube-proxy
+
+[upgrade/successful] SUCCESS! Your cluster was upgraded to "v1.26.3". Enjoy!
+
+[upgrade/kubelet] Now that your control plane is upgraded, please proceed with upgrading your kubelets if you haven't already done so.
+
+
+root@hk8s-master:~# apt-mark unhold kubeadm && \
+apt-get update && apt-get install -y kubeadm=1.26.3-00 && \
+apt-mark hold kubeadm
+Canceled hold on kubeadm.
+Hit:1 https://download.docker.com/linux/ubuntu jammy InRelease
+Hit:3 http://kr.archive.ubuntu.com/ubuntu jammy InRelease
+Hit:2 https://packages.cloud.google.com/apt kubernetes-xenial InRelease
+Hit:4 http://kr.archive.ubuntu.com/ubuntu jammy-updates InRelease
+Hit:5 http://kr.archive.ubuntu.com/ubuntu jammy-backports InRelease
+Hit:6 http://kr.archive.ubuntu.com/ubuntu jammy-security InRelease
+Reading package lists... Done
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+kubeadm is already the newest version (1.26.3-00).
+The following packages were automatically installed and are no longer required:
+  git-man liberror-perl patch
+Use 'apt autoremove' to remove them.
+0 upgraded, 0 newly installed, 0 to remove and 83 not upgraded.
+kubeadm set on hold.
+***************************************************************************************************************
+ 
+4. 노드드레인: console 이나 master 에서 실행
+sudo kubectl drain hk8s-master --ignore-daemonsets
+***************************************************************************************************************
+root@hk8s-master:~# sudo kubectl drain hk8s-master --ignore-daemonsets
+node/hk8s-master cordoned
+Warning: ignoring DaemonSet-managed Pods: calico-system/calico-node-99wtw, calico-system/csi-node-driver-prj9d, kube-system/kube-proxy-dq9nr
+evicting pod tigera-operator/tigera-operator-dd6596576-wf8sr
+evicting pod calico-system/calico-kube-controllers-7f55d475d-7sbcd
+evicting pod calico-apiserver/calico-apiserver-79856c48fc-h9tj5
+evicting pod calico-apiserver/calico-apiserver-79856c48fc-lqb4x
+evicting pod kube-system/coredns-787d4945fb-g5gmf
+evicting pod calico-system/calico-typha-5d975894b7-7g9zm
+evicting pod kube-system/coredns-787d4945fb-r8gx6
+pod/tigera-operator-dd6596576-wf8sr evicted
+pod/calico-apiserver-79856c48fc-lqb4x evicted
+pod/calico-apiserver-79856c48fc-h9tj5 evicted
+pod/calico-kube-controllers-7f55d475d-7sbcd evicted
+pod/coredns-787d4945fb-r8gx6 evicted
+pod/coredns-787d4945fb-g5gmf evicted
+evicting pod calico-system/calico-typha-5d975894b7-7g9zm
+error when evicting pods/"calico-typha-5d975894b7-7g9zm" -n "calico-system" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+******************************************************************************************************************
+
+5. kubelet 과 kubectl 업그레이드
+sudo -i
+apt-mark unhold kubelet kubectl && \
+apt-get update && apt-get install -y kubelet=1.26.3-00 kubectl=1.26.3-00 && \
+apt-mark hold kubelet kubectl
+******************************************************************************************************************
+root@hk8s-master:~# apt-mark unhold kubelet kubectl && \
+apt-get update && apt-get install -y kubelet=1.26.3-00 kubectl=1.26.3-00 && \
+apt-mark hold kubelet kubectl
+Canceled hold on kubelet.
+Canceled hold on kubectl.
+Hit:1 https://download.docker.com/linux/ubuntu jammy InRelease
+Hit:3 http://kr.archive.ubuntu.com/ubuntu jammy InRelease
+Get:4 http://kr.archive.ubuntu.com/ubuntu jammy-updates InRelease [119 kB]
+Hit:2 https://packages.cloud.google.com/apt kubernetes-xenial InRelease
+Get:5 http://kr.archive.ubuntu.com/ubuntu jammy-backports InRelease [108 kB]
+Get:6 http://kr.archive.ubuntu.com/ubuntu jammy-security InRelease [110 kB]
+Fetched 337 kB in 2s (149 kB/s)
+Reading package lists... Done
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+The following packages were automatically installed and are no longer required:
+  git-man liberror-perl patch
+Use 'apt autoremove' to remove them.
+The following packages will be upgraded:
+  kubectl kubelet
+2 upgraded, 0 newly installed, 0 to remove and 81 not upgraded.
+Need to get 30.6 MB of archives.
+After this operation, 36.9 kB of additional disk space will be used.
+Get:1 https://packages.cloud.google.com/apt kubernetes-xenial/main amd64 kubectl amd64 1.26.3-00 [10.1 MB]
+Get:2 https://packages.cloud.google.com/apt kubernetes-xenial/main amd64 kubelet amd64 1.26.3-00 [20.5 MB]
+Fetched 30.6 MB in 5s (6194 kB/s)
+debconf: delaying package configuration, since apt-utils is not installed
+(Reading database ... 68523 files and directories currently installed.)
+Preparing to unpack .../kubectl_1.26.3-00_amd64.deb ...
+Unpacking kubectl (1.26.3-00) over (1.26.0-00) ...
+Preparing to unpack .../kubelet_1.26.3-00_amd64.deb ...
+Unpacking kubelet (1.26.3-00) over (1.26.0-00) ...
+Setting up kubectl (1.26.3-00) ...
+Setting up kubelet (1.26.3-00) ...
+Scanning processes...
+Scanning linux images...
+
+Running kernel seems to be up-to-date.
+
+No services need to be restarted.
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+kubelet set on hold.
+kubectl set on hold.
+***********************************************************************************************************************
+6. kubelet, kubectl 재실행
+sudo systemctl daemon-reload
+sudo systemctl restart kubelet
+
+7. 노드 uncordon
+kubectl uncordon hk8s-master
+kubectl get nodes -> master node 현재 버전 확인
+************************************************************************************************************************
+ubuntu@hk8s-master:~$ kubectl uncordon hk8s-master
+node/hk8s-master uncordoned
+
+ubuntu@hk8s-master:~$ kubectl get nodes
+NAME           STATUS     ROLES           AGE   VERSION
+hk8s-master    Ready      control-plane   40d   v1.26.3
+hk8s-worker1   Ready      <none>          40d   v1.26.0
+hk8s-worker2   NotReady   <none>          40d   v1.26.0
+************************************************************************************************************************
+
