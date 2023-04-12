@@ -89,5 +89,50 @@ front-end-5b76b7ff75-rkns4   1/1     Running                  0             29h
 web                          0/1     Completed                1 (30h ago)   30h
 ******************************************************************************************************
 
+문제 4. 
 
+◾ 작업 클러스터 : k8s
+마스터 노드의 모든 Kubernetes control plane 및 node 구성요소를 버전 1.23.3 으로 업그레이드 합니다.
+master 노드를 업그레이드 하기전에 drain 하고 업그레이드후에 uncordon 해야합니다.
 
+" Master Node "
+********************************************************************************************************
+ubuntu@k8s-master:~$ sudo apt update
+Get:1 https://download.docker.com/linux/ubuntu jammy InRelease [48.9 kB]
+Hit:3 http://kr.archive.ubuntu.com/ubuntu jammy InRelease
+Get:4 http://kr.archive.ubuntu.com/ubuntu jammy-updates InRelease [119 kB]
+Get:2 https://packages.cloud.google.com/apt kubernetes-xenial InRelease [8993 B]
+Get:5 https://packages.cloud.google.com/apt kubernetes-xenial/main amd64 Packages [64.8 kB]
+Get:6 http://kr.archive.ubuntu.com/ubuntu jammy-backports InRelease [108 kB]
+Get:7 http://kr.archive.ubuntu.com/ubuntu jammy-security InRelease [110 kB]
+Get:8 http://kr.archive.ubuntu.com/ubuntu jammy-updates/main amd64 Packages [993 kB]
+Get:9 http://kr.archive.ubuntu.com/ubuntu jammy-updates/main Translation-en [211 kB]
+Get:10 http://kr.archive.ubuntu.com/ubuntu jammy-updates/restricted amd64 Packages [748 kB]
+Get:11 http://kr.archive.ubuntu.com/ubuntu jammy-updates/restricted Translation-en [116 kB]
+Get:12 http://kr.archive.ubuntu.com/ubuntu jammy-updates/universe amd64 Packages [899 kB]
+Get:13 http://kr.archive.ubuntu.com/ubuntu jammy-updates/universe Translation-en [180 kB]
+Get:14 http://kr.archive.ubuntu.com/ubuntu jammy-updates/multiverse amd64 Packages [24.1 kB]
+Get:15 http://kr.archive.ubuntu.com/ubuntu jammy-security/main amd64 Packages [731 kB]
+Get:16 http://kr.archive.ubuntu.com/ubuntu jammy-security/main Translation-en [147 kB]
+Get:17 http://kr.archive.ubuntu.com/ubuntu jammy-security/restricted amd64 Packages [705 kB]
+Get:18 http://kr.archive.ubuntu.com/ubuntu jammy-security/restricted Translation-en [110 kB]
+Get:19 http://kr.archive.ubuntu.com/ubuntu jammy-security/universe amd64 Packages [716 kB]
+Get:20 http://kr.archive.ubuntu.com/ubuntu jammy-security/universe Translation-en [118 kB]
+Get:21 http://kr.archive.ubuntu.com/ubuntu jammy-security/multiverse amd64 Packages [19.4 kB]
+Fetched 6176 kB in 6s (1004 kB/s)
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+87 packages can be upgraded. Run 'apt list --upgradable' to see them.
+
+ubuntu@k8s-master:~$ sudo apt-cache madison kubeadm | head -5
+   kubeadm |  1.27.0-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubeadm |  1.26.3-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubeadm |  1.26.2-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubeadm |  1.26.1-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubeadm |  1.26.0-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+**********************************************************************************************************************************
+ sudo -i
+ apt-mark unhold kubeadm && \
+ apt-get update && apt-get install -y kubeadm=1.27.0-00 && \
+ apt-mark hold kubeadm
