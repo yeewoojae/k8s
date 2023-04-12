@@ -28,7 +28,7 @@ Last login: Tue Apr 11 16:27:57 2023 from 10.0.2.5
 
 2. 업그레이드할 버전 확인
 apt update
-apt-cache madison kubeadm | tail -5
+apt-cache madison kubeadm | head -5
 *******************************************************************************************************
 ubuntu@hk8s-master:~$ sudo apt update
 Get:1 https://download.docker.com/linux/ubuntu jammy InRelease [48.9 kB]
@@ -217,7 +217,7 @@ Use 'apt autoremove' to remove them.
 kubeadm set on hold.
 ***************************************************************************************************************
  
-4. 노드드레인: console 이나 master 에서 실행
+4. 노드 드레인: console 이나 master 에서 실행
 sudo kubectl drain hk8s-master --ignore-daemonsets
 ***************************************************************************************************************
 root@hk8s-master:~# sudo kubectl drain hk8s-master --ignore-daemonsets
@@ -313,4 +313,242 @@ hk8s-master    Ready      control-plane   40d   v1.26.3
 hk8s-worker1   Ready      <none>          40d   v1.26.0
 hk8s-worker2   NotReady   <none>          40d   v1.26.0
 ************************************************************************************************************************
+
+" hk8s Worker node "
+
+• Kubernetes cluster upgrade
+• kubeadm, kubelet, kubectl을 1.26.0 에서 1.26.3 버전으로 업그레이드
+• Worker node Upgrade
+1. Upgrade 할 node 에 접속: ssh <node>
+ssh hk8s-worker1
+2. kubeadm 업그레이드
+apt update
+apt-cache madison kubeadm | head -5
+
+sudo -i
+apt-mark unhold kubeadm && \
+apt-get update && apt-get install -y kubeadm=1.27.0-00 && \
+apt-mark hold kubeadm
+*******************************************************************************************************************
+ubuntu@hk8s-worker1:~$ sudo apt update
+Get:1 https://download.docker.com/linux/ubuntu jammy InRelease [48.9 kB]
+Get:3 https://download.docker.com/linux/ubuntu jammy/stable amd64 Packages [15.5 kB]
+Hit:4 http://kr.archive.ubuntu.com/ubuntu jammy InRelease
+Get:2 https://packages.cloud.google.com/apt kubernetes-xenial InRelease [8993 B]
+Get:5 http://kr.archive.ubuntu.com/ubuntu jammy-updates InRelease [119 kB]
+Get:6 https://packages.cloud.google.com/apt kubernetes-xenial/main amd64 Packages [64.8 kB]
+Get:7 http://kr.archive.ubuntu.com/ubuntu jammy-backports InRelease [108 kB]
+Get:8 http://kr.archive.ubuntu.com/ubuntu jammy-security InRelease [110 kB]
+Get:9 http://kr.archive.ubuntu.com/ubuntu jammy-updates/main amd64 Packages [994 kB]
+Get:10 http://kr.archive.ubuntu.com/ubuntu jammy-updates/main Translation-en [211 kB]
+Get:11 http://kr.archive.ubuntu.com/ubuntu jammy-updates/restricted amd64 Packages [748 kB]
+Get:12 http://kr.archive.ubuntu.com/ubuntu jammy-updates/restricted Translation-en [116 kB]
+Get:13 http://kr.archive.ubuntu.com/ubuntu jammy-updates/universe amd64 Packages [899 kB]
+Get:14 http://kr.archive.ubuntu.com/ubuntu jammy-updates/universe Translation-en [180 kB]
+Get:15 http://kr.archive.ubuntu.com/ubuntu jammy-updates/multiverse amd64 Packages [24.1 kB]
+Get:16 http://kr.archive.ubuntu.com/ubuntu jammy-updates/multiverse Translation-en [6312 B]
+Get:17 http://kr.archive.ubuntu.com/ubuntu jammy-backports/main amd64 Packages [40.6 kB]
+Get:18 http://kr.archive.ubuntu.com/ubuntu jammy-backports/universe amd64 Packages [20.3 kB]
+Get:19 http://kr.archive.ubuntu.com/ubuntu jammy-backports/universe Translation-en [14.4 kB]
+Get:20 http://kr.archive.ubuntu.com/ubuntu jammy-security/main amd64 Packages [731 kB]
+Get:21 http://kr.archive.ubuntu.com/ubuntu jammy-security/main Translation-en [147 kB]
+Get:22 http://kr.archive.ubuntu.com/ubuntu jammy-security/restricted amd64 Packages [705 kB]
+Get:23 http://kr.archive.ubuntu.com/ubuntu jammy-security/restricted Translation-en [110 kB]
+Get:24 http://kr.archive.ubuntu.com/ubuntu jammy-security/universe amd64 Packages [716 kB]
+Get:25 http://kr.archive.ubuntu.com/ubuntu jammy-security/universe Translation-en [118 kB]
+Get:26 http://kr.archive.ubuntu.com/ubuntu jammy-security/multiverse amd64 Packages [19.4 kB]
+Get:27 http://kr.archive.ubuntu.com/ubuntu jammy-security/multiverse Translation-en [4068 B]
+Fetched 6278 kB in 8s (794 kB/s)
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+84 packages can be upgraded. Run 'apt list --upgradable' to see them.
+
+ubuntu@hk8s-worker1:~$ apt-cache madison kubelet | head -5
+   kubelet |  1.27.0-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubelet |  1.26.3-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubelet |  1.26.2-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubelet |  1.26.1-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   kubelet |  1.26.0-00 | https://apt.kubernetes.io kubernetes-xenial/main amd64 Packages
+   
+root@hk8s-worker1:~# apt-mark unhold kubeadm && \
+apt-get update && apt-get install -y kubeadm=1.27.0-00 && \
+apt-mark hold kubead
+Canceled hold on kubeadm.
+Hit:1 https://download.docker.com/linux/ubuntu jammy InRelease
+Hit:3 http://kr.archive.ubuntu.com/ubuntu jammy InRelease
+Hit:2 https://packages.cloud.google.com/apt kubernetes-xenial InRelease
+Hit:4 http://kr.archive.ubuntu.com/ubuntu jammy-updates InRelease
+Hit:5 http://kr.archive.ubuntu.com/ubuntu jammy-backports InRelease
+Hit:6 http://kr.archive.ubuntu.com/ubuntu jammy-security InRelease
+Reading package lists... Done
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+The following packages were automatically installed and are no longer required:
+  git-man liberror-perl patch
+Use 'apt autoremove' to remove them.
+The following packages will be upgraded:
+  kubeadm
+1 upgraded, 0 newly installed, 0 to remove and 81 not upgraded.
+Need to get 9931 kB of archives.
+After this operation, 1393 kB of additional disk space will be used.
+Get:1 https://packages.cloud.google.com/apt kubernetes-xenial/main amd64 kubeadm amd64 1.27.0-00 [9931 kB]
+Fetched 9931 kB in 2s (4200 kB/s)
+debconf: delaying package configuration, since apt-utils is not installed
+(Reading database ... 68306 files and directories currently installed.)
+Preparing to unpack .../kubeadm_1.27.0-00_amd64.deb ...
+Unpacking kubeadm (1.27.0-00) over (1.26.0-00) ...
+Setting up kubeadm (1.27.0-00) ...
+Scanning processes...
+Scanning linux images...
+
+Running kernel seems to be up-to-date.
+
+No services need to be restarted.
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+E: Unable to locate package kubead
+E: No packages found
+*******************************************************************************************************************
+
+3. "kubeadm upgrade" 호출
+sudo kubeadm upgrade node
+**********************************************************************************************************
+ubuntu@hk8s-worker1:~$ sudo kubeadm upgrade node
+[upgrade] Reading configuration from the cluster...
+[upgrade] FYI: You can look at this config file with 'kubectl -n kube-system get cm kubeadm-config -o yaml'
+[preflight] Running pre-flight checks
+[preflight] Skipping prepull. Not a control plane node.
+[upgrade] Skipping phase. Not a control plane node.
+[kubelet-start] Writing kubelet configuration to file "/var/lib/kubelet/config.yaml"
+[upgrade] The configuration for this node was successfully updated!
+[upgrade] Now you should go ahead and upgrade the kubelet package using your package manager.
+************************************************************************************************************
+
+4. 노드 드레인
+kubectl drain <node> --ignore-daemonsets
+kubectl drain hk8s-worker1 --ignore-daemonsets
+
+
+5. kubelet, kubectl 업그레이드
+sudo -i
+apt-mark unhold kubelet kubectl && \
+apt-get update && apt-get install -y kubelet=1.27.0-00 kubectl=1.27.0-00 && \
+apt-mark hold kubelet kubectl
+*************************************************************************************************************
+debconf: unable to initialize frontend: Dialog
+debconf: (No usable dialog-like program is installed, so the dialog based frontend cannot be used. at /usr/share/perl5/Debconf/FrontEnd/Dialog.pm line 78.)
+
+echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
+sudo apt-get install -y -q
+-> 위 에러 두 줄로 해결 완료!!
+
+ubuntu@hk8s-worker1:~$ sudo -i
+root@hk8s-worker1:~# apt-mark unhold kubelet kubectl && \
+apt-get update && apt-get install -y kubelet=1.27.0-00 kubectl=1.27.0-00 && \
+apt-mark hold kubelet kubectl
+Canceled hold on kubelet.
+Canceled hold on kubectl.
+Hit:2 http://kr.archive.ubuntu.com/ubuntu jammy InRelease
+Hit:1 https://packages.cloud.google.com/apt kubernetes-xenial InRelease
+Hit:3 http://kr.archive.ubuntu.com/ubuntu jammy-updates InRelease
+Hit:4 http://kr.archive.ubuntu.com/ubuntu jammy-backports InRelease
+Hit:5 http://kr.archive.ubuntu.com/ubuntu jammy-security InRelease
+Hit:6 https://download.docker.com/linux/ubuntu jammy InRelease
+Reading package lists... Done
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+The following packages were automatically installed and are no longer required:
+  git-man liberror-perl patch
+Use 'apt autoremove' to remove them.
+The following packages will be upgraded:
+  kubectl kubelet
+2 upgraded, 0 newly installed, 0 to remove and 82 not upgraded.
+Need to get 29.0 MB of archives.
+After this operation, 13.9 MB disk space will be freed.
+Get:1 https://packages.cloud.google.com/apt kubernetes-xenial/main amd64 kubectl amd64 1.27.0-00 [10.2 MB]
+Get:2 https://packages.cloud.google.com/apt kubernetes-xenial/main amd64 kubelet amd64 1.27.0-00 [18.8 MB]
+Fetched 29.0 MB in 4s (6513 kB/s)
+debconf: delaying package configuration, since apt-utils is not installed
+(Reading database ... 68306 files and directories currently installed.)
+Preparing to unpack .../kubectl_1.27.0-00_amd64.deb ...
+Unpacking kubectl (1.27.0-00) over (1.26.0-00) ...
+Preparing to unpack .../kubelet_1.27.0-00_amd64.deb ...
+Unpacking kubelet (1.27.0-00) over (1.26.0-00) ...
+Setting up kubectl (1.27.0-00) ...
+Setting up kubelet (1.27.0-00) ...
+debconf: unable to initialize frontend: Dialog
+debconf: (No usable dialog-like program is installed, so the dialog based frontend cannot be used. at /usr/share/perl5/Debconf/FrontEnd/Dialog.pm line 78.)
+debconf: falling back to frontend: Readline
+Scanning processes...
+Scanning linux images...
+
+Running kernel seems to be up-to-date.
+
+No services need to be restarted.
+
+No containers need to be restarted.
+
+No user sessions are running outdated binaries.
+
+No VM guests are running outdated hypervisor (qemu) binaries on this host.
+kubelet set on hold.
+kubectl set on hold.
+
+root@hk8s-worker1:~# echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
+sudo apt-get install -y -q
+Reading package lists...
+Building dependency tree...
+Reading state information...
+The following packages were automatically installed and are no longer required:
+  git-man liberror-perl patch
+Use 'sudo apt autoremove' to remove them.
+0 upgraded, 0 newly installed, 0 to remove and 82 not upgraded.
+
+root@hk8s-worker1:~# apt-mark unhold kubelet kubectl && \
+apt-get update && apt-get install -y kubelet=1.27.0-00 kubectl=1.27.0-00 && \
+apt-mark hold kubelet kubectl
+Canceled hold on kubelet.
+Canceled hold on kubectl.
+Hit:1 https://download.docker.com/linux/ubuntu jammy InRelease
+Hit:3 http://kr.archive.ubuntu.com/ubuntu jammy InRelease
+Hit:2 https://packages.cloud.google.com/apt kubernetes-xenial InRelease
+Hit:4 http://kr.archive.ubuntu.com/ubuntu jammy-updates InRelease
+Hit:5 http://kr.archive.ubuntu.com/ubuntu jammy-backports InRelease
+Hit:6 http://kr.archive.ubuntu.com/ubuntu jammy-security InRelease
+Reading package lists... Done
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+kubectl is already the newest version (1.27.0-00).
+kubelet is already the newest version (1.27.0-00).
+The following packages were automatically installed and are no longer required:
+  git-man liberror-perl patch
+Use 'apt autoremove' to remove them.
+0 upgraded, 0 newly installed, 0 to remove and 82 not upgraded.
+kubelet set on hold.
+kubectl set on hold.
+****************************************************************************************************************************
+
+6. kubelet 재시작
+sudo systemctl daemon-reload
+sudo systemctl restart kubelet
+
+7. 노드 uncordon
+kubectl uncordon <node>
+kubectl uncordon hk8s-worker1
+
+
+
+
+
+
+
+
 
